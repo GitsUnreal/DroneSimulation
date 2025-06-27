@@ -9,10 +9,6 @@ class ControlPanel(QWidget):
 
         layout = QVBoxLayout()
 
-        #Start Pause button
-        self.start_pause_button = QPushButton("Start Simulation")
-        layout.addWidget(self.start_pause_button)
-
         # Speed control slider
         self.speed_label = QLabel("Drone Speed:")
 

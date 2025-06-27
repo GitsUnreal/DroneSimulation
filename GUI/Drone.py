@@ -4,26 +4,19 @@ class Drone:
         self.y = y
         self.vx = vx
         self.vy = vy
+        self.alive = True
 
-    def update(self, obstacles, width, height):
-        # Check obstacles and adjust velocity
-        for obs in obstacles:
-            if obs.contains(int(self.x + self.vx), int(self.y + self.vy)):
-                self.vx = -self.vx
-                self.vy = -self.vy
-                break
-        
-        # Update position
+    def update(self, width, height):
+        if not self.alive:
+            return
+
         self.x += self.vx
         self.y += self.vy
 
-        # Wrap around window edges
-        if self.x > width:
-            self.x = 0
-        elif self.x < 0:
-            self.x = width
+        if self.x > width: self.x = 0
+        elif self.x < 0: self.x = width
+        if self.y > height: self.y = 0
+        elif self.y < 0: self.y = height
 
-        if self.y > height:
-            self.y = 0
-        elif self.y < 0:
-            self.y = height
+    def destroy(self):
+        self.alive = False

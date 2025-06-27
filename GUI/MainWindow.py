@@ -14,7 +14,7 @@ class MainWindow(QWidget):
         main_layout = QVBoxLayout()
 
         self.control_panel = ControlPanel()
-        main_layout.addWidget(self.control_panel)
+        main_layout.addWidget(self.control_panel, 1)
 
         self.button = QPushButton("Start Simulation")
         self.button.clicked.connect(self.toggle_simulation)
@@ -49,7 +49,12 @@ class MainWindow(QWidget):
 
     def update_simulation(self):
         for drone in self.drones:
-            drone.update(self.obstacles, self.width(), self.height())
+            for obs in self.obstacles:
+                if obs.contains(int(drone.x + drone.vx), int(drone.y + drone.vy)):
+                    drone.destroy()
+                    break
+
+            drone.update(self.width(), self.height())
         self.update()
 
     def paintEvent(self, event):
