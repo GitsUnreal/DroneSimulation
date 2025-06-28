@@ -8,6 +8,12 @@ class MovementController:
     """
 
     def __init__(self, drones, obstacles, target):
+        """
+        Initialize the MovementController with drones, obstacles, and target.
+        :param drones: List of drone objects that will be controlled.
+        :param obstacles: List of obstacle objects that drones need to avoid.
+        :param target: The target position that drones will move towards.
+        """
         self.drones = drones
         self.obstacles = obstacles
         self.target = target
