@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout
 from GUI.MainWindow import MainWindow
-from AI.Movementcontroller import MovementController
+from AI.MainController import MainController
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     drones = main_window.drones
     obstacles = main_window.obstacles
     target = main_window.target
-    movement_controller = MovementController(drones, obstacles, target)
+    mainController = MainController(drones, obstacles, target)
 
     sys.exit(app.exec_())
 

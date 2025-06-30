@@ -1,5 +1,8 @@
+import numpy as np
+from .GuidingMissile import GuidingMissile
+
 class Drone:
-    def __init__(self, x, y, vx=2, vy=1):
+    def __init__(self, position, velocity):
         """
         Initialize a drone with position (x, y) and velocity (vx, vy).
         :param x: Initial x-coordinate of the drone.
@@ -8,10 +11,9 @@ class Drone:
         :param vy: Velocity in the y-direction.
         """
 
-        self.x = x
-        self.y = y
-        self.vx = vx
-        self.vy = vy
+        self.position = np.array(position)
+        self.velocity = np.array(velocity)
+        self.x, self.y = self.position
         self.alive = True
 
     def move_towards_target(self, width, height, target):
@@ -27,13 +29,13 @@ class Drone:
 
         # Move towards the target
         if self.x < target.x():
-            self.x += self.vx
+            self.x += self.velocity[0]
         elif self.x > target.x() + target.width():
-            self.x -= self.vx
+            self.x -= self.velocity[0]
         if self.y < target.y():
-            self.y += self.vy
+            self.y += self.velocity[1]
         elif self.y > target.y() + target.height():
-            self.y -= self.vy
+            self.y -= self.velocity[1]
         
         # Keep within bounds
         self.x = max(0, min(self.x, width - 20))
@@ -72,14 +74,5 @@ class Drone:
         """
         if not self.alive:
             return
-        # Logic for attacking the target can be added here
-        pass
-
-    def apply_boids_behavior(self, drones):
-        """
-        Apply Boids behavior to the drone based on nearby drones.
-        This method can be extended to include flocking behavior.
-        :param drones: List of all drones in the simulation.
-        """
-        # Placeholder for Boids behavior logic
-        pass
+        GuidingMissile(target)  # Placeholder for missile logic
+        

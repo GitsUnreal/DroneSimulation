@@ -4,8 +4,9 @@ from PyQt5.QtCore import QTimer, QRect
 from PyQt5.QtGui import QPainter, QColor
 from AI.Drone import Drone 
 from GUI.ControlPanel import ControlPanel
-from AI.Movementcontroller import MovementController
+from AI.MainController import MainController
 import random
+import numpy as np
 
 class MainWindow(QWidget):
     """
@@ -43,9 +44,9 @@ class MainWindow(QWidget):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
 
-        self.drones = [
-            Drone(50, 50),
-        ]
+        num_drones = max(0, min(5, 50))  # clamps the number to 5
+        self.drones = [Drone([np.random.rand()*500, np.random.rand()*500],
+                            [np.random.rand()*2-1, np.random.rand()*2-1]) for _ in range(num_drones)]
 
         self.obstacles = [
             QRect(200, 150, 100, 50),
@@ -54,7 +55,7 @@ class MainWindow(QWidget):
 
         self.target = QRect(random.randint(400, 800), random.randint(100, 500), 20, 20)
 
-        self.movement_controller = MovementController(self.drones, self.obstacles, self.target)
+        self.movement_controller = MainController(self.drones, self.obstacles, self.target)
 
 
         self.timer = QTimer()
@@ -90,7 +91,7 @@ class MainWindow(QWidget):
         self.target = QRect(random.randint(400, 800), random.randint(100, 500), 20, 20)
         
         # Reinitialize movement controller with new target
-        self.movement_controller = MovementController(self.drones, self.obstacles, self.target)
+        self.movement_controller = MainController(self.drones, self.obstacles, self.target)
         
         # Force a repaint
         self.update()
@@ -101,7 +102,7 @@ class MainWindow(QWidget):
         # Check for collisions with obstacles
         for drone in self.drones:
             for obs in self.obstacles:
-                if obs.contains(int(drone.x + drone.vx), int(drone.y + drone.vy)):
+                if obs.contains(int(drone.position[0] + drone.velocity[0]), int(drone.position[1] + drone.velocity[1])):
                     drone.destroy()
                     break
         
