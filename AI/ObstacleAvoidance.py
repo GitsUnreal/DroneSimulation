@@ -20,7 +20,7 @@ class OAI:
         grid = {}
         width = 1080
         height = 720
-        cell_size = 20
+        cell_size = 10
 
         # Create a grid of points spaced by cell_size
         for y in range(0, height, cell_size):

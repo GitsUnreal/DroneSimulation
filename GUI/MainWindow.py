@@ -2,7 +2,7 @@ import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout
 from PyQt5.QtCore import QTimer, QRect
 from PyQt5.QtGui import QPainter, QColor
-from GUI.Drone import Drone 
+from AI.Drone import Drone 
 from GUI.ControlPanel import ControlPanel
 from AI.Movementcontroller import MovementController
 import random
