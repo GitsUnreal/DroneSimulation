@@ -44,9 +44,10 @@ class MainWindow(QWidget):
         main_layout.addLayout(button_layout)
         self.setLayout(main_layout)
 
-        num_drones = max(0, min(5, 50))  # clamps the number to 5
+        num_drones = max(0, min(2, 50))  # clamps the number to 5
         self.drones = [Drone([np.random.rand()*500, np.random.rand()*500],
-                            [np.random.rand()*2-1, np.random.rand()*2-1]) for _ in range(num_drones)]
+                            [np.random.rand()*2-1, np.random.rand()*2-1], 
+                            i) for i in range(num_drones)]  # Added drone ID as third parameter
 
         self.obstacles = [
             QRect(200, 150, 100, 50),
@@ -81,15 +82,21 @@ class MainWindow(QWidget):
             self.simulation_running = False
             self.button.setText("Start Simulation")
         
-        # Reset drone position and state
-        for drone in self.drones:
-            drone.x = 50
-            drone.y = 50
+        # Reset drone position and state with proper synchronization
+        for i, drone in enumerate(self.drones):
+            # Reset to starting positions with some spread
+            start_x = 50 + i * 40
+            start_y = 50 + i * 30
+            
+            # Ensure position is synchronized properly
+            drone.position = np.array([start_x, start_y], dtype=float)
+            drone.x = start_x
+            drone.y = start_y
+            drone.velocity = np.array([0.0, 0.0])  # Reset velocity
             drone.alive = True
-        
-        # Generate new random target
-        self.target = QRect(random.randint(400, 800), random.randint(100, 500), 20, 20)
-        
+            
+            print(f"Reset drone {i} to position ({start_x}, {start_y})")
+                    
         # Reinitialize movement controller with new target
         self.movement_controller = MainController(self.drones, self.obstacles, self.target)
         
@@ -101,10 +108,30 @@ class MainWindow(QWidget):
     def update_simulation(self):
         # Check for collisions with obstacles
         for drone in self.drones:
+            if not drone.alive:
+                continue
+                
+            # Check obstacle collisions
             for obs in self.obstacles:
-                if obs.contains(int(drone.position[0] + drone.velocity[0]), int(drone.position[1] + drone.velocity[1])):
+                if obs.contains(int(drone.position[0]), int(drone.position[1])):
+                    print(f"Drone {drone.id} destroyed by obstacle collision at ({drone.position[0]:.1f}, {drone.position[1]:.1f})")
                     drone.destroy()
                     break
+            
+            # Check drone-to-drone collisions
+            if drone.alive:
+                for other in self.drones:
+                    if other is not drone and other.alive:
+                        distance = np.linalg.norm(drone.position - other.position)
+                        if distance < 20:  # Collision threshold
+                            print(f"Drone collision detected! Distance: {distance:.1f}")
+                            # Optional: destroy both drones or just push them apart
+                            # For now, let's just push them apart
+                            direction = drone.position - other.position
+                            if np.linalg.norm(direction) > 0:
+                                direction = direction / np.linalg.norm(direction)
+                                drone.position += direction * 2
+                                other.position -= direction * 2
         
         # Use the movement controller for pathfinding
         self.movement_controller.move_drones()
