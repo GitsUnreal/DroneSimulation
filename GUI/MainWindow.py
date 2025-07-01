@@ -11,6 +11,7 @@ from GUI.SimulationManager import SimulationManager
 from GUI.PerformancePanel import PerformancePanel
 from GUI.StatisticsPanel import StatisticsPanel
 from GUI.AlertSystem import AlertSystem
+from GUI.MissileRenderer import MissileRenderer
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -26,6 +27,7 @@ class MainWindow(QWidget):
         self.debug_panel = DebugPanel(self)
         self.status_checker = StatusChecker()
         self.renderer = Renderer()
+        self.missile_renderer = MissileRenderer()
 
         # Add new monitoring components
         self.performance_panel = PerformancePanel(self)
@@ -151,11 +153,18 @@ class MainWindow(QWidget):
         self.update()
 
     def update_simulation(self):
-        """Enhanced simulation update with monitoring"""
+        """Enhanced simulation update with target destruction handling"""
         self.sim_manager.handle_collisions()
-        self.sim_manager.movement_controller.update_drones()
+        
+        # Get update results including target destruction status
+        update_result = self.sim_manager.movement_controller.update_drones()
+        
         update_missiles(self.sim_manager.drones)
         self.update_missile_display()
+        
+        # Handle target destruction
+        if update_result and update_result.get('target_destroyed'):
+            self.handle_target_destroyed()
         
         # Run periodic checks
         mission_complete, collisions, stuck = self.status_checker.run_periodic_checks(
@@ -179,6 +188,35 @@ class MainWindow(QWidget):
         self.check_for_alerts()
         
         self.update()
+
+    def handle_target_destroyed(self):
+        """Handle target destruction event"""
+        print("🎯 TARGET DESTROYED! Mission objective complete!")
+        
+        # Show target destroyed alert
+        self.alert_system.show_alert(
+            "🎯 TARGET DESTROYED! 🎯\n\nMission Objective Complete!\nDrones returning to base...", 
+            "#00FF00", 
+            duration=4000
+        )
+        
+        # Mark all active drones to return to base immediately
+        for drone in self.sim_manager.drones:
+            if drone.alive and not (hasattr(drone, 'has_landed') and drone.has_landed):
+                if not hasattr(drone, 'returning_to_base'):
+                    drone.has_attacked = True  # Force return to base behavior
+                    print(f"Drone {drone.drone_id} ordered to return to base after target destruction")
+        
+        # Optionally pause simulation after a delay
+        QTimer.singleShot(2000, self.pause_after_target_destroyed)
+
+    def pause_after_target_destroyed(self):
+        """Pause simulation after target is destroyed (optional)"""
+        # Uncomment if you want to auto-pause after target destruction
+        # if self.simulation_running:
+        #     self.toggle_simulation()
+        #     print("Simulation paused after target destruction")
+        pass
 
     def check_for_alerts(self):
         """Check for events that should trigger alerts"""
@@ -221,26 +259,37 @@ class MainWindow(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
-        offset_y = self.control_panel_height
+        # Calculate offset for control bar
+        offset_y = 50
 
-        # Draw grid overlay if enabled
-        if self.show_grid:
+        # Draw existing elements
+        self.renderer.draw_static_elements(painter, offset_y, 
+                                         self.sim_manager.obstacles, 
+                                         self.sim_manager.target, 
+                                         self.sim_manager.base)
+
+        # Draw grid if enabled
+        if hasattr(self, 'grid_visible') and self.grid_visible:
             self.renderer.draw_grid(painter, offset_y, self.sim_manager.movement_controller)
 
+        # Draw drones
+        for drone in self.sim_manager.drones:
+            self.renderer.draw_drone_with_status(painter, drone, offset_y)
+
         # Draw paths if enabled
-        if self.show_paths:
+        if hasattr(self, 'paths_visible') and self.paths_visible:
             self.renderer.draw_paths(painter, offset_y, self.sim_manager.drones)
 
-        # Draw static elements
-        self.renderer.draw_static_elements(painter, offset_y, self.sim_manager.obstacles, self.sim_manager.target, self.sim_manager.base)
+        # OLD missile rendering (remove this if you have it)
+        # self.renderer.draw_missiles(painter, offset_y, self.sim_manager.drones)
 
-        # Draw drones with status - only active drones (renderer will handle filtering)
-        for drone in self.sim_manager.drones:
-            if drone.alive:
-                self.renderer.draw_drone_with_status(painter, drone, offset_y)
-
-        # Draw missiles - only for active drones
-        self.renderer.draw_missiles(painter, offset_y, self.get_active_drones())
+        # NEW missile rendering using MissileRenderer
+        if hasattr(self.sim_manager.movement_controller, 'missile_manager'):
+            self.missile_renderer.draw_missiles(
+                painter, 
+                self.sim_manager.movement_controller.missile_manager, 
+                offset_y
+            )
 
     def get_active_drones(self):
         """Get list of drones that should be visible in simulation"""

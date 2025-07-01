@@ -18,7 +18,7 @@ class MissileState(Enum):
 
 @dataclass
 class MissileConfig:
-    speed: float = 3.0
+    speed: float = 20.0
     max_range: float = 500.0
     damage: int = 100
     explosion_radius: float = 30.0
@@ -55,6 +55,10 @@ class Missile:
         # Effects
         self.trail_points: List[Tuple[float, float]] = []
         self.explosion_timer = 0
+        
+        # Add callback support
+        self.on_target_hit = None
+        self.target_object = None
 
     def update(self, dt: float, drones: List, obstacles: List) -> bool:
         """Update missile state and return True if still active"""
@@ -109,7 +113,8 @@ class Missile:
             direction = self.target_position - self.position
             distance = np.linalg.norm(direction)
             
-            if distance < 5:  # Reached target
+            if distance < 15:  # Increased hit radius for better detection
+                print(f"Missile {self.missile_id} hit target at distance {distance:.1f}")
                 self.explode()
                 return
             elif distance < self.config.homing_range and self.missile_type == MissileType.HOMING:
@@ -120,8 +125,11 @@ class Missile:
         # Apply movement
         self._apply_movement(dt)
         
-        # Check collisions
+        # Check collisions with obstacles
         self._check_collisions(obstacles)
+        
+        # Check collision with actual target object (if provided)
+        self._check_target_collision()
 
     def _update_homing(self, dt: float, drones: List):
         """Handle homing behavior"""
@@ -205,6 +213,11 @@ class Missile:
         """Trigger missile explosion"""
         self.state = MissileState.EXPLODING
         self.explosion_timer = 0
+        
+        # Call hit callback if target was hit
+        if self.on_target_hit and hasattr(self, 'hit_target') and self.hit_target:
+            self.on_target_hit(self)
+        
         print(f"Missile {self.missile_id} exploded at {self.position}")
 
     def get_explosion_effect(self) -> dict:
@@ -218,3 +231,16 @@ class Missile:
                 'active': True
             }
         return {'active': False}
+
+    def _check_target_collision(self) -> bool:
+        """Check if missile hit the target"""
+        # Check distance to target position
+        distance_to_target = np.linalg.norm(self.target_position - self.position)
+        
+        if distance_to_target < 20:  # Hit radius
+            print(f"🎯 Missile {self.missile_id} HIT TARGET! Distance: {distance_to_target:.1f}")
+            self.hit_target = True  # Mark that we hit the target
+            self.explode()
+            return True
+        
+        return False

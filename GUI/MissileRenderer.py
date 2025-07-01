@@ -1,5 +1,6 @@
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 from PyQt5.QtCore import Qt
+import numpy as np
 import math
 
 class MissileRenderer:

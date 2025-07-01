@@ -51,10 +51,10 @@ class Drone:
             return
 
         start = tuple(self.position)
-        target_pos = (target.x(), target.y())
+        target_pos = (target.position[0], target.position[1])
 
         # Create missile and fire
-        guiding_missile = GuidingMissile(drone, target, oai, grid)
+        guiding_missile = MissileType.HOMING(drone, target, oai, grid)
         if guiding_missile.shoot_missile(start, target_pos):
             self.missiles_fired += 1
             print(f"Drone {self.drone_id}: Fired missile ({self.missiles_fired}/{self.max_missiles})")
@@ -65,7 +65,7 @@ class Drone:
             print(f"Drone {self.drone_id}: Cannot fire missile ({self.missiles_fired}/{self.max_missiles})")
             return False
 
-        target_pos = (target.x(), target.y())
+        target_pos = (target.position[0], target.position[1])
         
         # Choose missile type based on distance or drone state
         if hasattr(self, 'missile_preference'):

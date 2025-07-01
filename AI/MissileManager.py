@@ -9,6 +9,11 @@ class MissileManager:
         self.grid = grid
         self.missile_counter = 0
         self.explosion_effects: List[dict] = []
+        self.target = None  # Add target reference
+
+    def set_target(self, target):
+        """Set the current target for missile tracking"""
+        self.target = target
 
     def fire_missile(self, drone, target_pos: tuple, missile_type: MissileType = MissileType.STANDARD,
                     config: MissileConfig = None) -> bool:
@@ -29,6 +34,10 @@ class MissileManager:
             config=config or MissileConfig()
         )
         
+        # Store target reference in missile
+        if self.target:
+            missile.target_object = self.target
+        
         # Calculate path using existing pathfinding
         start_grid = self.oai.snap_to_grid(missile.position)
         goal_grid = self.oai.snap_to_grid(target_pos)
@@ -40,8 +49,16 @@ class MissileManager:
         self.missiles.append(missile)
         drone.missiles_fired += 1
         
-        print(f"Fired {missile_type.value} missile {missile_id} from drone {drone.drone_id}")
+        print(f"Fired {missile_type.value} missile {missile_id} from drone {drone.drone_id} to {target_pos}")
         return True
+
+    def reload_missiles(self, drone):
+        """Reload missiles for a drone"""
+        if hasattr(drone, 'max_missiles'):
+            drone.missiles_fired = 0
+            print(f"Drone {drone.drone_id} reloaded missiles")
+        else:
+            print(f"Drone {drone.drone_id} cannot reload missiles (no max_missiles attribute)")
 
     def update_missiles(self, dt: float, drones: List, obstacles: List):
         """Update all missiles"""

@@ -75,23 +75,21 @@ class StatusChecker:
         return collisions_detected, pathfinding_active, stuck_drones
 
     def run_periodic_checks(self, drones, obstacles, toggle_simulation_callback):
-        """Enhanced periodic checks with alert integration"""
+        """Run all periodic status checks"""
         self.check_counter += 1
-        if self.check_counter % 60 == 0:
-            # Check 1: Drone States
-            alive, landed, destroyed = self.check_drone_states(drones)
-            
-            # Check 2: Mission Progress
+        
+        if self.check_counter % 20 == 0:  # Every second at 50ms intervals
+            self.check_drone_states(drones)
             mission_complete = self.check_mission_progress(drones)
+            performance_issues = self.check_system_performance(drones, obstacles)
             
-            # Check 3: System Performance
-            collisions, pathfinding, stuck = self.check_system_performance(drones, obstacles)
+            # Check if target is destroyed
+            target_destroyed = hasattr(self, 'target') and self.target and self.target.is_destroyed()
             
-            # Show mission complete alert if needed
-            if mission_complete:
-                toggle_simulation_callback()
-                print("🏁 Simulation paused - Mission Complete!")
-                return mission_complete, collisions, stuck
-            
-            return mission_complete, collisions, stuck
-        return False, 0, 0
+            if target_destroyed and mission_complete:
+                print("🎯 MISSION COMPLETE: Target destroyed and all drones processed!")
+                return True, False, performance_issues
+            elif target_destroyed:
+                print("🎯 Target destroyed! Waiting for drones to return to base...")
+        
+        return False, False, False

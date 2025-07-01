@@ -3,6 +3,7 @@ import numpy as np
 from PyQt5.QtCore import QRect
 from AI.Drone import Drone
 from AI.MainController import MainController
+from EnemyAI.Target import target
 
 class SimulationManager:
     def __init__(self):
@@ -27,13 +28,20 @@ class SimulationManager:
             QRect(200, 150, 100, 50),
             QRect(350, 300, 100, 50),
         ]
-        self.target = self.random_target()
+        self.target = target(target_id=1, position=(500, 500), height=20, width=20)
+
         self.base = QRect(50, 50, 20, 20)
 
         self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
 
-    def random_target(self):
-        return QRect(random.randint(400, 800), random.randint(100, 500), 20, 20)
+    # def random_target(self):
+    #     return QRect(random.randint(400, 800), random.randint(100, 500), 20, 20)
+
+    def check_target_status(self):
+        """Check if target has been destroyed"""
+        if self.target and self.target.is_destroyed():
+            return True
+        return False
 
     def reset_simulation(self):
         """Reset all drones and create new target"""
@@ -56,8 +64,12 @@ class SimulationManager:
                 drone.current_path_timer = 0
             print(f"Reset drone {i} to position ({start_x}, {start_y})")
 
-        self.target = self.random_target()
-        print(f"New target at ({self.target.x()}, {self.target.y()})")
+        # Reset target
+        if self.target:
+            self.target.destroyed = False  # Reset target destruction status
+
+        self.target = target(target_id=0, position=(random.randint(400, 800), random.randint(100, 500)), height=20, width=20)
+        print(f"New target at ({self.target.position[0]}, {self.target.position[1]})")
         self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
 
     def get_active_drones(self):

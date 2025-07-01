@@ -15,17 +15,21 @@ class MainController:
         self.boids = Boids(self.drones)
         self.oai = OAI(self.drones, self.obstacles, CELL_SIZE)
         self.grid = self.oai.make_grid()
-        self.oai.add_neighbors(self.grid)  # Only call once here
+        self.oai.add_neighbors(self.grid)
 
-        # Add missile manager
+        # Add missile manager with grid reference
         self.missile_manager = MissileManager(self.oai, self.grid)
+        
+        # Set target in missile manager
+        if self.target:
+            self.missile_manager.set_target(self.target)
 
         print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
         print(f"Grid created with {len(self.grid)} cells.")
 
     def distance_to_target(self, drone):
         """Calculate distance from drone to target."""
-        return np.linalg.norm(np.array([self.target.x(), self.target.y()]) - drone.position)
+        return np.linalg.norm(np.array([self.target.position[0], self.target.position[1]]) - drone.position)
     
     def distance_to_base(self, drone):
         """Calculate distance from drone to base."""
@@ -38,6 +42,22 @@ class MainController:
         return self.oai.find_path(self.grid, start, goal, drone)
 
     def update_drones(self):
+        # Update missiles FIRST (before drone logic)
+        self.missile_manager.update_missiles(0.05, self.drones, self.obstacles)
+        
+        # Check for target hits and destruction
+        target_hit_this_frame = False
+        for missile in self.missile_manager.get_active_missiles():
+            if hasattr(missile, 'hit_target') and missile.hit_target and missile.state.value == "exploding":
+                if not self.target.is_destroyed():
+                    print(f"🎯 TARGET HIT by missile {missile.missile_id}!")
+                    self.target.destroy()
+                    target_hit_this_frame = True
+        
+        # Return target hit status so GUI can handle it
+        if target_hit_this_frame:
+            return {'target_destroyed': True}
+        
         for i, drone in enumerate(self.drones):
             # Skip destroyed drones AND landed drones
             if drone.is_destroyed() or (hasattr(drone, 'has_landed') and drone.has_landed):
@@ -52,7 +72,7 @@ class MainController:
                 target_force = (target_vec / (np.linalg.norm(target_vec) + 1e-6)) * 2.0  # Stronger force to base
             else:
                 # Normal mission: target the mission objective
-                target_vec = np.array([self.target.x(), self.target.y()]) - drone.position
+                target_vec = np.array([self.target.position[0], self.target.position[1]]) - drone.position
                 distance = np.linalg.norm(target_vec)
                 target_force = (target_vec / distance) * 1.5 if distance > 5 else np.zeros(2)
 
@@ -98,7 +118,7 @@ class MainController:
             # Pathfinding for obstacles
             if not hasattr(drone, 'current_path') or not drone.current_path:
                 if collision_detected:
-                    path = self.get_path_to_target(drone, (self.target.x(), self.target.y()))
+                    path = self.get_path_to_target(drone, (self.target.position[0], self.target.position[1]))
                     drone.current_path = path or []
                     drone.current_waypoint_index = 0
                     drone.path_id = f"drone_{i}_path_{len(drone.current_path)}"
@@ -154,9 +174,6 @@ class MainController:
             drone.constrain_to_bounds(WIDTH, HEIGHT)
             drone.sync_from_position()
 
-            # Update missiles
-            self.missile_manager.update_missiles(0.05, self.drones, self.obstacles)  # dt = 50ms
-            
             # Modified attack logic to use new missile system
             if self.distance_to_target(drone) < 100 and not drone.has_attacked:
                 if drone.can_fire_missile():
@@ -165,9 +182,10 @@ class MainController:
                     # Choose missile type based on conditions
                     missile_type = MissileType.HOMING if self.distance_to_target(drone) > 50 else MissileType.STANDARD
                     
-                    success = self.missile_manager.fire_missile(
-                        drone, 
-                        (self.target.x(), self.target.y()), 
+                    # Use the attack_with_missile_system method
+                    success = drone.attack_with_missile_system(
+                        self.target, 
+                        self.missile_manager, 
                         missile_type
                     )
                     
@@ -204,3 +222,5 @@ class MainController:
                         drone.missiles.clear()
                     
                     print(f"Drone {drone.drone_id} has landed at base and is now hidden.")
+        
+        return {'target_destroyed': False}

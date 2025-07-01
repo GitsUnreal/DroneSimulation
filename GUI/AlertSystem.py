@@ -42,24 +42,24 @@ class AlertSystem:
         if landed_count == total_drones:
             alert_text = f"""🎉 MISSION COMPLETE! 🎉
             
-✅ All {total_drones} drones returned safely
-🚀 {missiles_fired} missiles fired
-⭐ Perfect execution!"""
+    ✅ All {total_drones} drones returned safely
+    🚀 {missiles_fired} missiles fired
+    ⭐ Perfect execution!"""
             border_color = "#00FF00"
         elif destroyed_count > 0:
             alert_text = f"""⚠️ MISSION COMPLETE ⚠️
             
-✅ {landed_count} drones returned
-💥 {destroyed_count} drones lost
-🚀 {missiles_fired} missiles fired
-🎯 Objectives achieved with casualties"""
+    ✅ {landed_count} drones returned
+    💥 {destroyed_count} drones lost
+    🚀 {missiles_fired} missiles fired
+    🎯 Objectives achieved with casualties"""
             border_color = "#FFFF00"
         else:
             alert_text = f"""🎯 MISSION COMPLETE 🎯
             
-✅ Objectives achieved
-🚀 {missiles_fired} missiles fired
-🚁 {total_drones} drones operational"""
+    ✅ Objectives achieved
+    🚀 {missiles_fired} missiles fired
+    🚁 {total_drones} drones operational"""
             border_color = "#4A90E2"
         
         self.show_alert(alert_text, border_color, duration=5000)

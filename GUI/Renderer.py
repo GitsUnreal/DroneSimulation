@@ -1,4 +1,4 @@
-from PyQt5.QtGui import QPainter, QColor, QFont
+from PyQt5.QtGui import QPainter, QColor, QFont, QPen
 from PyQt5.QtCore import QRect
 
 class Renderer:
@@ -150,10 +150,38 @@ class Renderer:
             adjusted = QRect(obs.x(), obs.y() + offset_y, obs.width(), obs.height())
             painter.drawRect(adjusted)
 
-        # Target
-        painter.setBrush(QColor(50, 200, 50))
-        target_adj = QRect(target.x(), target.y() + offset_y, target.width(), target.height())
-        painter.drawRect(target_adj)
+        # Target - different appearance if destroyed
+        if target.is_destroyed():
+            # Draw destroyed target with different visual
+            painter.setBrush(QColor(100, 100, 100))  # Gray for destroyed
+            painter.setPen(QPen(QColor(255, 0, 0), 3))  # Red border
+            target_adj = QRect(target.position[0], target.position[1] + offset_y, target.width, target.height)
+            painter.drawRect(target_adj)
+            
+            # Draw X over destroyed target
+            painter.setPen(QPen(QColor(255, 0, 0), 4))
+            painter.drawLine(
+                target.position[0], target.position[1] + offset_y,
+                target.position[0] + target.width, target.position[1] + target.height + offset_y
+            )
+            painter.drawLine(
+                target.position[0] + target.width, target.position[1] + offset_y,
+                target.position[0], target.position[1] + target.height + offset_y
+            )
+            
+            # Add "DESTROYED" text
+            painter.setPen(QPen(QColor(255, 255, 255), 2))
+            painter.setFont(QFont("Arial", 8, QFont.Bold))
+            painter.drawText(
+                target.position[0] - 10, target.position[1] + offset_y - 5, 
+                "DESTROYED"
+            )
+        else:
+            # Normal target appearance
+            painter.setBrush(QColor(50, 200, 50))
+            painter.setPen(QPen(QColor(0, 0, 0), 1))
+            target_adj = QRect(target.position[0], target.position[1] + offset_y, target.width, target.height)
+            painter.drawRect(target_adj)
 
         # Base
         painter.setBrush(QColor(0, 0, 0))
