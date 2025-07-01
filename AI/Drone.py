@@ -61,18 +61,54 @@ class Drone:
 
     def reset_missiles(self):
         """Reset missile count and clear missiles."""
-        self.missiles_fired = 0
+        # Only reset missiles list, not the fired count for mission tracking
         if hasattr(self, 'missiles'):
             self.missiles.clear()
         if hasattr(self, 'returning_to_base'):
             del self.returning_to_base
+        # Don't reset missiles_fired here to preserve mission statistics
 
     def is_active(self):
         """Check if drone is active in the simulation"""
-        return self.alive and not (hasattr(self, 'has_landed') and self.has_landed)
+        return self.alive and not self.has_landed
 
     def land_at_base(self):
         """Land drone at base (removes from active simulation)"""
         self.has_landed = True
-        self.alive = False  # Remove from simulation but distinguish from destroyed
+        # Don't set alive = False, keep drone alive but landed
         print(f"Drone {self.drone_id} has successfully landed at base")
+
+    def reactivate_from_base(self, new_target_pos=None):
+        """Reactivate a landed drone for a new mission"""
+        if not hasattr(self, 'has_landed') or not self.has_landed:
+            print(f"Drone {self.drone_id} is not landed, cannot reactivate")
+            return False
+        
+        # Reset drone state for new mission
+        self.has_landed = False
+        self.has_attacked = False
+        self.missiles_fired = 0
+        
+        # Clear any existing paths
+        self.current_path = []
+        self.current_waypoint_index = 0
+        
+        # Clear missiles
+        if hasattr(self, 'missiles'):
+            self.missiles.clear()
+        
+        # Remove return to base flag
+        if hasattr(self, 'returning_to_base'):
+            delattr(self, 'returning_to_base')
+        
+        # Optionally move to new position (if provided)
+        if new_target_pos:
+            self.position = np.array(new_target_pos, dtype=float)
+            self.sync_from_position()
+        
+        print(f"Drone {self.drone_id} reactivated for new mission")
+        return True
+
+def get_landed_drones_at_base(drones):
+    """Get all drones that are landed at base"""
+    return [drone for drone in drones if hasattr(drone, 'has_landed') and drone.has_landed]

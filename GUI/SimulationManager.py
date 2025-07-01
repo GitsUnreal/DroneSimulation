@@ -1,0 +1,102 @@
+import random
+import numpy as np
+from PyQt5.QtCore import QRect
+from AI.Drone import Drone
+from AI.MainController import MainController
+
+class SimulationManager:
+    def __init__(self):
+        self.drones = []
+        self.obstacles = []
+        self.target = None
+        self.base = None
+        self.movement_controller = None
+
+    def init_simulation(self, num_drones=2):
+        """Initialize simulation objects and controller."""
+        self.drones = [
+            Drone(
+                [np.random.rand() * 500, np.random.rand() * 500],
+                [np.random.rand() * 2 - 1, np.random.rand() * 2 - 1],
+                i
+            )
+            for i in range(num_drones)
+        ]
+
+        self.obstacles = [
+            QRect(200, 150, 100, 50),
+            QRect(350, 300, 100, 50),
+        ]
+        self.target = self.random_target()
+        self.base = QRect(50, 50, 20, 20)
+
+        self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
+
+    def random_target(self):
+        return QRect(random.randint(400, 800), random.randint(100, 500), 20, 20)
+
+    def reset_simulation(self):
+        """Reset all drones and create new target"""
+        for i, drone in enumerate(self.drones):
+            start_x = 50 + i * 40
+            start_y = 50 + i * 30
+            drone.position = np.array([start_x, start_y], dtype=float)
+            drone.x, drone.y = start_x, start_y
+            drone.velocity = np.zeros(2)
+            drone.alive = True
+            drone.has_attacked = False
+            drone.has_landed = False
+            if hasattr(drone, 'returning_to_base'):
+                drone.returning_to_base = False
+
+            drone.reset_missiles()
+            drone.current_path = []
+            drone.current_waypoint_index = 0
+            if hasattr(drone, 'current_path_timer'):
+                drone.current_path_timer = 0
+            print(f"Reset drone {i} to position ({start_x}, {start_y})")
+
+        self.target = self.random_target()
+        print(f"New target at ({self.target.x()}, {self.target.y()})")
+        self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
+
+    def get_active_drones(self):
+        """Get drones that are actively participating in simulation"""
+        return [drone for drone in self.drones if drone.alive and not (hasattr(drone, 'has_landed') and drone.has_landed)]
+
+    def get_landed_drones(self):
+        """Get drones that have landed at base"""
+        return [drone for drone in self.drones if hasattr(drone, 'has_landed') and drone.has_landed]
+
+    def reactivate_all_landed_drones(self):
+        """Reactivate all landed drones for a new mission"""
+        landed_drones = self.get_landed_drones()
+        for drone in landed_drones:
+            drone.reactivate_from_base()
+        
+        if landed_drones:
+            print(f"Reactivated {len(landed_drones)} drones from base")
+        return len(landed_drones)
+
+    def handle_collisions(self):
+        """Handle drone collisions with obstacles and other drones - only for active drones"""
+        active_drones = self.get_active_drones()
+        
+        for drone in active_drones:
+            # Obstacle collisions
+            for obs in self.obstacles:
+                if obs.contains(int(drone.position[0]), int(drone.position[1])):
+                    print(f"Drone {drone.drone_id} destroyed by obstacle at ({drone.position[0]:.1f}, {drone.position[1]:.1f})")
+                    drone.destroy()
+                    break
+
+            # Drone-to-drone collisions (only with other active drones)
+            for other in active_drones:
+                if other is not drone:
+                    dist = np.linalg.norm(drone.position - other.position)
+                    if dist < 20:
+                        direction = drone.position - other.position
+                        if np.linalg.norm(direction) > 0:
+                            direction /= np.linalg.norm(direction)
+                            drone.position += direction * 2
+                            other.position -= direction * 2

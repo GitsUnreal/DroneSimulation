@@ -160,13 +160,20 @@ class MainController:
                     drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
                     print(f"Drone {drone.drone_id} returning to base with {len(drone.current_path)} waypoints.")
                 
-                # Check if drone has reached base (moved outside and always checked)
+                # Check if drone has reached base
                 if self.distance_to_base(drone) < 10:
-                    drone.land_at_base()  # Custom landing method
+                    # Position drone exactly at base
+                    drone.position = np.array([self.base.x() + 10, self.base.y() + 10], dtype=float)
+                    drone.sync_from_position()
+                    
+                    # Stop drone movement
+                    drone.velocity = np.zeros(2)
+                    
+                    drone.land_at_base()
                     drone.returning_to_base = False
-                    drone.has_attacked = False
-                    drone.reset_missiles()
-                    print(f"Drone {drone.drone_id} has landed at base.")
-                    # Don't destroy - let them stay at base or get new missions
-                    drone.landed()  # Comment this out if you want them to survive
-
+                    
+                    # Clear active missiles
+                    if hasattr(drone, 'missiles'):
+                        drone.missiles.clear()
+                    
+                    print(f"Drone {drone.drone_id} has landed at base and is now hidden.")

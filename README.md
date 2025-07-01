@@ -41,9 +41,9 @@
 - [x] Obstacle visualization
 - [x] Target and base markers
 - [x] Missile trail visualization
-- [ ] Grid overlay toggle
-- [ ] Path visualization for debugging
-- [ ] Status icons for drone states
+- [x] Grid overlay toggle
+- [x] Path visualization for debugging
+- [x] Status icons for drone states
 
 ### Status Monitoring
 - [x] Individual drone status labels
