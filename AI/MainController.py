@@ -22,6 +22,10 @@ class MainController:
     def distance_to_target(self, drone):
         """Calculate distance from drone to target."""
         return np.linalg.norm(np.array([self.target.x(), self.target.y()]) - drone.position)
+    
+    def distance_to_base(self, drone):
+        """Calculate distance from drone to base."""
+        return np.linalg.norm(np.array([self.base.x(), self.base.y()]) - drone.position)
 
     def get_path_to_target(self, drone, goal_pos):
         """Get pathfinding route to a specific goal position."""
@@ -35,14 +39,22 @@ class MainController:
                 continue
 
             drone.update_position_sync()
-            target_vec = np.array([self.target.x(), self.target.y()]) - drone.position
-            distance = np.linalg.norm(target_vec)
+            
+            # Determine target based on drone state
+            if hasattr(drone, 'returning_to_base') and drone.returning_to_base:
+                # When returning to base, target the base instead of the mission target
+                target_vec = np.array([self.base.x(), self.base.y()]) - drone.position
+                target_force = (target_vec / (np.linalg.norm(target_vec) + 1e-6)) * 2.0  # Stronger force to base
+            else:
+                # Normal mission: target the mission objective
+                target_vec = np.array([self.target.x(), self.target.y()]) - drone.position
+                distance = np.linalg.norm(target_vec)
+                target_force = (target_vec / distance) * 1.5 if distance > 5 else np.zeros(2)
 
             # Boids forces
             sep = self.boids.compute_separation(drone) * 2.0
             ali = self.boids.compute_alignment(drone) * 0.1
             coh = self.boids.compute_cohesion(drone) * 0.1
-            target_force = (target_vec / distance) * 1.5 if distance > 5 else np.zeros(2)
 
             # Obstacle avoidance
             avoidance_force = np.zeros(2)
@@ -73,8 +85,27 @@ class MainController:
                     drone.current_waypoint_index = 0
                     drone.path_id = f"drone_{i}_path_{len(drone.current_path)}"
 
-            # Movement logic
-            if collision_detected and not drone.current_path:
+            # Movement logic - updated to prioritize base return
+            if hasattr(drone, 'returning_to_base') and drone.returning_to_base:
+                # When returning to base, prioritize direct movement to base
+                if drone.current_path and drone.current_waypoint_index < len(drone.current_path):
+                    waypoint = np.array(drone.current_path[drone.current_waypoint_index])
+                    to_waypoint = waypoint - drone.position
+                    dist = np.linalg.norm(to_waypoint)
+                    if dist < 25:
+                        drone.current_waypoint_index += 1
+                        if drone.current_waypoint_index >= len(drone.current_path):
+                            drone.current_path = []
+                            drone.current_waypoint_index = 0
+                            print(f"Drone {drone.drone_id} completed return path.")
+                
+                if drone.current_waypoint_index < len(drone.current_path):
+                    force = (to_waypoint / (dist + 1e-6)) * 3.0  # Stronger force for return
+                    steering = sep * 1.5 + force * 3 + avoidance_force * 1.5  # Reduce separation, increase path following
+                else:
+                    # No path, go directly to base
+                    steering = sep * 1.5 + target_force * 3 + avoidance_force
+            elif collision_detected and not drone.current_path:
                 steering = sep * 4 + avoidance_force * 3
                 if np.linalg.norm(avoidance_force) > 0:
                     perpendicular = np.array([-avoidance_force[1], avoidance_force[0]])
@@ -119,7 +150,7 @@ class MainController:
                     print(f"Drone {drone.drone_id} is out of missiles.")
                     drone.has_attacked = True
 
-            # Return to base logic
+            # Return to base logic - FIXED
             if drone.has_attacked:
                 if not hasattr(drone, 'returning_to_base'):
                     drone.returning_to_base = True
@@ -127,4 +158,15 @@ class MainController:
                     drone.current_path = path or []
                     drone.current_waypoint_index = 0
                     drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
-                    print(f"Drone {drone.drone_id} returning to base.")
+                    print(f"Drone {drone.drone_id} returning to base with {len(drone.current_path)} waypoints.")
+                
+                # Check if drone has reached base (moved outside and always checked)
+                if self.distance_to_base(drone) < 10:
+                    drone.land_at_base()  # Custom landing method
+                    drone.returning_to_base = False
+                    drone.has_attacked = False
+                    drone.reset_missiles()
+                    print(f"Drone {drone.drone_id} has landed at base.")
+                    # Don't destroy - let them stay at base or get new missions
+                    drone.landed()  # Comment this out if you want them to survive
+

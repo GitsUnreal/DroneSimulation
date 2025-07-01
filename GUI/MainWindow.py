@@ -113,6 +113,9 @@ class MainWindow(QWidget):
             drone.velocity = np.zeros(2)
             drone.alive = True
             drone.has_attacked = False
+            drone.has_landed = False
+            drone.returning_to_base = False
+
             drone.reset_missiles()
             drone.current_path = []
             drone.current_waypoint_index = 0
@@ -155,7 +158,16 @@ class MainWindow(QWidget):
     def update_missile_display(self):
         for drone, label in zip(self.drones, self.missile_status_labels):
             active_missiles = len([m for m in getattr(drone, 'missiles', []) if m['active']])
-            status_text = f"Drone {drone.drone_id}: Missile {drone.missiles_fired}/{drone.max_missiles} fired, {active_missiles} active - {'Alive' if drone.alive else 'Destroyed'}"
+            
+            # Fix the syntax error in the conditional expression
+            if drone.alive:
+                status = "Alive"
+            elif hasattr(drone, 'has_landed') and drone.has_landed:
+                status = "Landed"
+            else:
+                status = "Destroyed"
+            
+            status_text = f"Drone {drone.drone_id}: Missile {drone.missiles_fired}/{drone.max_missiles} fired, {active_missiles} active - {status}"
             label.setText(status_text)
             label.setStyleSheet(
                 f"font-size: 12px; color: {'green' if drone.alive else 'red'}; background-color: rgba(255,255,255,150); padding: 2px; border-radius: 3px;"
@@ -205,3 +217,74 @@ class MainWindow(QWidget):
     def closeEvent(self, event):
         print("Main window closed.")
         event.accept()
+
+    def check_drone_states(self):
+        """Check and report drone states"""
+        alive_count = 0
+        landed_count = 0
+        destroyed_count = 0
+        
+        for drone in self.drones:
+            if drone.alive:
+                if hasattr(drone, 'has_landed') and drone.has_landed:
+                    landed_count += 1
+                else:
+                    alive_count += 1
+            else:
+                destroyed_count += 1
+        
+        print(f"Drone Status: {alive_count} Active, {landed_count} Landed, {destroyed_count} Destroyed")
+        return alive_count, landed_count, destroyed_count
+
+    def check_mission_progress(self):
+        """Check mission completion status"""
+        total_missiles_fired = sum(drone.missiles_fired for drone in self.drones)
+        total_missiles_available = sum(drone.max_missiles for drone in self.drones)
+        drones_attacked = sum(1 for drone in self.drones if drone.has_attacked)
+        
+        mission_complete = all(drone.has_attacked or not drone.alive for drone in self.drones)
+        
+        print(f"Mission Progress: {total_missiles_fired}/{total_missiles_available} missiles fired, {drones_attacked}/{len(self.drones)} drones attacked")
+        
+        if mission_complete:
+            print("🎯 MISSION COMPLETE! All drones have completed their attacks.")
+            return True
+        return False
+
+    def check_system_performance(self):
+        """Check for system issues and performance"""
+        collisions_detected = 0
+        pathfinding_active = 0
+        stuck_drones = 0
+        
+        for drone in self.drones:
+            if not drone.alive:
+                continue
+                
+            # Check for collisions with obstacles
+            for obs in self.obstacles:
+                if obs.contains(int(drone.position[0]), int(drone.position[1])):
+                    collisions_detected += 1
+            
+            # Check if drone has active pathfinding
+            if hasattr(drone, 'current_path') and drone.current_path:
+                pathfinding_active += 1
+            
+            # Check if drone is stuck (very low velocity for extended time)
+            if hasattr(drone, 'velocity') and np.linalg.norm(drone.velocity) < 0.1:
+                if not hasattr(drone, 'stuck_timer'):
+                    drone.stuck_timer = 0
+                drone.stuck_timer += 1
+                if drone.stuck_timer > 100:  # Stuck for 100 frames
+                    stuck_drones += 1
+            else:
+                if hasattr(drone, 'stuck_timer'):
+                    drone.stuck_timer = 0
+        
+        if collisions_detected > 0:
+            print(f"⚠️ WARNING: {collisions_detected} collision(s) detected!")
+        if stuck_drones > 0:
+            print(f"⚠️ WARNING: {stuck_drones} drone(s) appear stuck!")
+        
+        print(f"System Status: {pathfinding_active} drones pathfinding, {stuck_drones} stuck")
+        return collisions_detected, pathfinding_active, stuck_drones

@@ -8,13 +8,14 @@ class Drone:
         self.alive = True
         self.drone_id = drone_id
         self.has_attacked = False
+        self.has_landed = False
 
-        self.max_missiles = 3  # Increased from 2 to 3
+        self.max_missiles = 2
         self.missiles_fired = 0
         self.current_path = []
         self.current_waypoint_index = 0
         
-        # Sync position variables
+        
         self.sync_from_position()
 
     def update_position_sync(self):
@@ -65,3 +66,13 @@ class Drone:
             self.missiles.clear()
         if hasattr(self, 'returning_to_base'):
             del self.returning_to_base
+
+    def is_active(self):
+        """Check if drone is active in the simulation"""
+        return self.alive and not (hasattr(self, 'has_landed') and self.has_landed)
+
+    def land_at_base(self):
+        """Land drone at base (removes from active simulation)"""
+        self.has_landed = True
+        self.alive = False  # Remove from simulation but distinguish from destroyed
+        print(f"Drone {self.drone_id} has successfully landed at base")
