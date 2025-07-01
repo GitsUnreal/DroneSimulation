@@ -42,6 +42,13 @@ class MainController:
         return self.oai.find_path(self.grid, start, goal, drone)
 
     def update_drones(self):
+        # Update target movement FIRST
+        if self.target and self.target.is_moving_target:
+            self.target.update_movement()
+            
+            # Update missile manager with new target position
+            self.missile_manager.set_target(self.target)
+        
         # Update missiles FIRST (before drone logic)
         self.missile_manager.update_missiles(0.05, self.drones, self.obstacles)
         
@@ -177,16 +184,17 @@ class MainController:
             # Modified attack logic to use new missile system
             if self.distance_to_target(drone) < 100 and not drone.has_attacked:
                 if drone.can_fire_missile():
-                    print(f"Drone {drone.drone_id} attacking target with missile system.")
+                    # Use predicted position for moving targets
+                    if self.target.is_moving_target:
+                        target_pos = self.target.get_predicted_position(1.0)  # Predict 1 second ahead
+                        print(f"Drone {drone.drone_id} targeting predicted position {target_pos}")
+                    else:
+                        target_pos = (self.target.x(), self.target.y())
                     
-                    # Choose missile type based on conditions
-                    missile_type = MissileType.HOMING if self.distance_to_target(drone) > 50 else MissileType.STANDARD
-                    
-                    # Use the attack_with_missile_system method
-                    success = drone.attack_with_missile_system(
-                        self.target, 
-                        self.missile_manager, 
-                        missile_type
+                    success = self.missile_manager.fire_missile(
+                        drone, 
+                        target_pos, 
+                        MissileType.HOMING  # Use homing missiles for moving targets
                     )
                     
                     if success and drone.missiles_fired >= drone.max_missiles:

@@ -28,8 +28,26 @@ class SimulationManager:
             QRect(200, 150, 100, 50),
             QRect(350, 300, 100, 50),
         ]
-        self.target = target(target_id=1, position=(500, 500), height=20, width=20)
-
+        # Create different types of targets
+        target_type = random.choice(["static", "linear", "circular", "waypoint", "random"])
+        
+        if target_type == "static":
+            self.target = target(target_id=1, position=(500, 400), height=20, width=20)
+        elif target_type == "linear":
+            self.target = target(target_id=1, position=(300, 300), height=20, width=20, is_moving_target=True)
+            self.target.set_linear_movement(direction=[1, 0.5], speed=3.0)
+        elif target_type == "circular":
+            self.target = target(target_id=1, position=(400, 300), height=20, width=20, is_moving_target=True)
+            self.target.set_circular_movement(center=[400, 300], radius=80, angular_speed=0.03)
+        elif target_type == "waypoint":
+            self.target = target(target_id=1, position=(200, 200), height=20, width=20, is_moving_target=True)
+            self.target.set_random_path(num_waypoints=6)
+        elif target_type == "random":
+            self.target = target(target_id=1, position=(400, 300), height=20, width=20, is_moving_target=True)
+            self.target.set_random_movement(direction_change_interval=2.0, speed=2.5)
+        
+        print(f"Created {target_type} target at {self.target.position}")
+        
         self.base = QRect(50, 50, 20, 20)
 
         self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)

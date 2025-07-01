@@ -268,20 +268,17 @@ class MainWindow(QWidget):
                                          self.sim_manager.target, 
                                          self.sim_manager.base)
 
-        # Draw grid if enabled
-        if hasattr(self, 'grid_visible') and self.grid_visible:
+        # Draw grid if enabled - FIX: use self.show_grid instead of self.grid_visible
+        if self.show_grid:
             self.renderer.draw_grid(painter, offset_y, self.sim_manager.movement_controller)
 
         # Draw drones
         for drone in self.sim_manager.drones:
             self.renderer.draw_drone_with_status(painter, drone, offset_y)
 
-        # Draw paths if enabled
-        if hasattr(self, 'paths_visible') and self.paths_visible:
+        # Draw paths if enabled - FIX: use self.show_paths instead of self.paths_visible
+        if self.show_paths:
             self.renderer.draw_paths(painter, offset_y, self.sim_manager.drones)
-
-        # OLD missile rendering (remove this if you have it)
-        # self.renderer.draw_missiles(painter, offset_y, self.sim_manager.drones)
 
         # NEW missile rendering using MissileRenderer
         if hasattr(self.sim_manager.movement_controller, 'missile_manager'):

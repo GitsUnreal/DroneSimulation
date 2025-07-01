@@ -150,38 +150,69 @@ class Renderer:
             adjusted = QRect(obs.x(), obs.y() + offset_y, obs.width(), obs.height())
             painter.drawRect(adjusted)
 
-        # Target - different appearance if destroyed
+        # Enhanced target rendering
         if target.is_destroyed():
             # Draw destroyed target with different visual
             painter.setBrush(QColor(100, 100, 100))  # Gray for destroyed
             painter.setPen(QPen(QColor(255, 0, 0), 3))  # Red border
-            target_adj = QRect(target.position[0], target.position[1] + offset_y, target.width, target.height)
+            # FIX: Convert numpy.float64 to int
+            target_adj = QRect(int(target.position[0]), int(target.position[1]) + offset_y, target.width, target.height)
             painter.drawRect(target_adj)
             
             # Draw X over destroyed target
             painter.setPen(QPen(QColor(255, 0, 0), 4))
             painter.drawLine(
-                target.position[0], target.position[1] + offset_y,
-                target.position[0] + target.width, target.position[1] + target.height + offset_y
+                int(target.position[0]), int(target.position[1]) + offset_y,
+                int(target.position[0]) + target.width, int(target.position[1]) + target.height + offset_y
             )
             painter.drawLine(
-                target.position[0] + target.width, target.position[1] + offset_y,
-                target.position[0], target.position[1] + target.height + offset_y
+                int(target.position[0]) + target.width, int(target.position[1]) + offset_y,
+                int(target.position[0]), int(target.position[1]) + target.height + offset_y
             )
             
             # Add "DESTROYED" text
             painter.setPen(QPen(QColor(255, 255, 255), 2))
             painter.setFont(QFont("Arial", 8, QFont.Bold))
             painter.drawText(
-                target.position[0] - 10, target.position[1] + offset_y - 5, 
+                int(target.position[0]) - 10, int(target.position[1]) + offset_y - 5, 
                 "DESTROYED"
             )
         else:
-            # Normal target appearance
-            painter.setBrush(QColor(50, 200, 50))
+            # Different colors for different movement types
+            if target.is_moving_target:
+                if target.movement_pattern == "linear":
+                    painter.setBrush(QColor(255, 165, 0))  # Orange
+                elif target.movement_pattern == "circular":
+                    painter.setBrush(QColor(0, 255, 255))  # Cyan
+                elif target.movement_pattern == "waypoint":
+                    painter.setBrush(QColor(255, 0, 255))  # Magenta
+                elif target.movement_pattern == "random":
+                    painter.setBrush(QColor(255, 255, 0))  # Yellow
+                
+                # Draw movement indicator
+                painter.setPen(QPen(QColor(255, 255, 255), 2))
+                if hasattr(target, 'velocity'):
+                    vel_scale = 20
+                    end_x = target.x() + target.velocity[0] * vel_scale
+                    end_y = target.y() + target.velocity[1] * vel_scale
+                    painter.drawLine(target.x(), target.y() + offset_y, int(end_x), int(end_y) + offset_y)
+            else:
+                painter.setBrush(QColor(50, 200, 50))  # Green for static
+            
             painter.setPen(QPen(QColor(0, 0, 0), 1))
-            target_adj = QRect(target.position[0], target.position[1] + offset_y, target.width, target.height)
+            # FIX: Convert numpy.float64 to int
+            target_adj = QRect(int(target.position[0]), int(target.position[1]) + offset_y, target.width, target.height)
             painter.drawRect(target_adj)
+            
+            # Draw waypoints for waypoint targets
+            if hasattr(target, 'waypoints') and target.waypoints:
+                painter.setPen(QPen(QColor(255, 255, 255), 1))
+                for i, waypoint in enumerate(target.waypoints):
+                    painter.drawEllipse(int(waypoint[0])-3, int(waypoint[1])+offset_y-3, 6, 6)
+                    if i == target.current_waypoint_index:
+                        painter.setPen(QPen(QColor(255, 0, 0), 2))
+                        painter.drawEllipse(int(waypoint[0])-5, int(waypoint[1])+offset_y-5, 10, 10)
+                        painter.setPen(QPen(QColor(255, 255, 255), 1))
 
         # Base
         painter.setBrush(QColor(0, 0, 0))
