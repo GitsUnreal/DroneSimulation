@@ -171,7 +171,6 @@ class target:
         else:
             return self.position + self.velocity * time_ahead
 
-    # Keep existing methods
     def destroy(self):
         self.destroyed = True
         print(f"Target {self.target_id} at {self.position} has been destroyed.")

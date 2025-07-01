@@ -132,24 +132,40 @@ class MainController:
 
             # Movement logic - updated to prioritize base return
             if hasattr(drone, 'returning_to_base') and drone.returning_to_base:
-                # When returning to base, prioritize direct movement to base
-                if drone.current_path and drone.current_waypoint_index < len(drone.current_path):
-                    waypoint = np.array(drone.current_path[drone.current_waypoint_index])
-                    to_waypoint = waypoint - drone.position
-                    dist = np.linalg.norm(to_waypoint)
-                    if dist < 25:
-                        drone.current_waypoint_index += 1
-                        if drone.current_waypoint_index >= len(drone.current_path):
-                            drone.current_path = []
-                            drone.current_waypoint_index = 0
-                            print(f"Drone {drone.drone_id} completed return path.")
+                base_distance = self.distance_to_base(drone)
                 
-                if drone.current_waypoint_index < len(drone.current_path):
-                    force = (to_waypoint / (dist + 1e-6)) * 3.0  # Stronger force for return
-                    steering = sep * 1.5 + force * 3 + avoidance_force * 1.5  # Reduce separation, increase path following
+                # If very close to base, move directly without pathfinding
+                if base_distance < 50:
+                    # Direct movement to base when close
+                    base_vec = np.array([self.base.x(), self.base.y()]) - drone.position
+                    base_distance_vec = np.linalg.norm(base_vec)
+                    if base_distance_vec > 0:
+                        direct_force = (base_vec / base_distance_vec) * 4.0  # Strong direct force
+                        steering = sep * 0.5 + direct_force + avoidance_force * 0.5  # Reduced separation when landing
+                    else:
+                        steering = np.zeros(2)
                 else:
-                    # No path, go directly to base
-                    steering = sep * 1.5 + target_force * 3 + avoidance_force
+                    # Use pathfinding when far from base
+                    if drone.current_path and drone.current_waypoint_index < len(drone.current_path):
+                        waypoint = np.array(drone.current_path[drone.current_waypoint_index])
+                        to_waypoint = waypoint - drone.position
+                        dist = np.linalg.norm(to_waypoint)
+                        if dist < 25:
+                            drone.current_waypoint_index += 1
+                            if drone.current_waypoint_index >= len(drone.current_path):
+                                drone.current_path = []
+                                drone.current_waypoint_index = 0
+                                print(f"Drone {drone.drone_id} completed return path.")
+                        
+                        if drone.current_waypoint_index < len(drone.current_path):
+                            force = (to_waypoint / (dist + 1e-6)) * 3.0
+                            steering = sep * 1.0 + force * 3 + avoidance_force * 1.0
+                        else:
+                            # No path, go directly to base
+                            steering = sep * 1.0 + target_force * 3 + avoidance_force
+                    else:
+                        # No path, go directly to base
+                        steering = sep * 1.0 + target_force * 3 + avoidance_force
             elif collision_detected and not drone.current_path:
                 steering = sep * 4 + avoidance_force * 3
                 if np.linalg.norm(avoidance_force) > 0:
@@ -213,14 +229,26 @@ class MainController:
                     drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
                     print(f"Drone {drone.drone_id} returning to base with {len(drone.current_path)} waypoints.")
                 
-                # Check if drone has reached base
-                if self.distance_to_base(drone) < 10:
-                    # Position drone exactly at base
-                    drone.position = np.array([self.base.x() + 10, self.base.y() + 10], dtype=float)
+                # Check if drone has reached base - INCREASED RADIUS
+                base_distance = self.distance_to_base(drone)
+                if base_distance < 30:  # Increased from 10 to 30 pixels
+                    # Position drone exactly at base with offset to avoid overlap
+                    landed_drones_count = len([d for d in self.drones if hasattr(d, 'has_landed') and d.has_landed])
+                    offset_x = (landed_drones_count % 3) * 15  # Spread drones in a 3x3 grid
+                    offset_y = (landed_drones_count // 3) * 15
+                    
+                    drone.position = np.array([
+                        self.base.x() + 5 + offset_x, 
+                        self.base.y() + 5 + offset_y
+                    ], dtype=float)
                     drone.sync_from_position()
                     
-                    # Stop drone movement
+                    # Stop drone movement completely
                     drone.velocity = np.zeros(2)
+                    
+                    # Clear path to stop circling
+                    drone.current_path = []
+                    drone.current_waypoint_index = 0
                     
                     drone.land_at_base()
                     drone.returning_to_base = False
@@ -229,6 +257,6 @@ class MainController:
                     if hasattr(drone, 'missiles'):
                         drone.missiles.clear()
                     
-                    print(f"Drone {drone.drone_id} has landed at base and is now hidden.")
+                    print(f"Drone {drone.drone_id} has landed at base (distance: {base_distance:.1f}) and is now hidden.")
         
         return {'target_destroyed': False}

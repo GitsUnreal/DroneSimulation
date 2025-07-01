@@ -1,6 +1,7 @@
+import numpy as np
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QRect
 from PyQt5.QtGui import QPainter
 
 from GUI.MissileGUI import update_missiles
@@ -12,6 +13,9 @@ from GUI.PerformancePanel import PerformancePanel
 from GUI.StatisticsPanel import StatisticsPanel
 from GUI.AlertSystem import AlertSystem
 from GUI.MissileRenderer import MissileRenderer
+from AI.Drone import Drone
+from AI.MainController import MainController
+from EnemyAI.Target import target
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -39,6 +43,15 @@ class MainWindow(QWidget):
         self.show_paths = False
         self.show_debug = False
 
+        # Initialize simulation state
+        self.simulation_running = False
+        self.timer = QTimer()
+        self.timer.timeout.connect(self.update_simulation)
+        self.timer.setInterval(50)  # 50ms = 20 FPS
+        
+        # Initialize missile status labels list
+        self.missile_status_labels = []
+
         self.init_layout()
         self.init_simulation()
 
@@ -52,11 +65,22 @@ class MainWindow(QWidget):
         main_layout.addLayout(control_bar)
         main_layout.addStretch()
 
-        # Missile status display (bottom-left)
-        self.status_layout = QVBoxLayout()
-        self.status_layout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
-        main_layout.addLayout(self.status_layout)
-
+        # Bottom status area - ENHANCED
+        bottom_layout = QHBoxLayout()
+        
+        # Left side - Missile status display
+        self.missile_status_layout = QVBoxLayout()
+        self.missile_status_layout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+        
+        # Right side - for any other bottom-right elements
+        right_bottom_layout = QVBoxLayout()
+        right_bottom_layout.setAlignment(Qt.AlignRight | Qt.AlignBottom)
+        
+        bottom_layout.addLayout(self.missile_status_layout)
+        bottom_layout.addStretch()
+        bottom_layout.addLayout(right_bottom_layout)
+        
+        main_layout.addLayout(bottom_layout)
         main_layout.setContentsMargins(5, 5, 5, 5)
         main_layout.setSpacing(0)
 
@@ -113,23 +137,112 @@ class MainWindow(QWidget):
 
         return control_bar
 
-    def init_simulation(self):
-        """Initialize simulation using SimulationManager"""
-        self.sim_manager.init_simulation(num_drones=2)
+    def init_simulation(self, num_drones=2):
+        """Initialize simulation objects and controller."""
         
-        # Create status labels
+        # Create obstacles FIRST
+        self.obstacles = [
+            QRect(200, 150, 100, 50),
+            QRect(350, 300, 100, 50),
+        ]
+        
+        # Create drones with valid positions
+        self.drones = []
+        for i in range(num_drones):
+            # Find valid spawn position for drone
+            valid_position = self.find_valid_position(width=20, height=20, margin=30)
+            
+            # Add some offset for multiple drones
+            if i > 0:
+                # Try to space drones apart
+                for attempt in range(10):
+                    test_pos = (valid_position[0] + i * 40, valid_position[1] + i * 30)
+                    if self.is_position_valid(test_pos, width=20, height=20, margin=30):
+                        valid_position = test_pos
+                        break
+            
+            drone = Drone(
+                list(valid_position),  # Convert tuple to list
+                [np.random.rand() * 2 - 1, np.random.rand() * 2 - 1],
+                i
+            )
+            
+            self.drones.append(drone)
+            print(f"Spawned drone {i} at safe position {valid_position}")
+
+        # Create target with valid position
+        self._create_target_with_valid_position()
+        
+        self.base = QRect(50, 50, 20, 20)  # Base position is usually safe
+        
+        # Update sim_manager with our created objects
+        self.sim_manager.drones = self.drones
+        self.sim_manager.obstacles = self.obstacles
+        self.sim_manager.target = self.target
+        self.sim_manager.base = self.base
+        
+        # Create movement controller
+        self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
+        self.sim_manager.movement_controller = self.movement_controller
+        
+        # Clear existing missile status labels
+        for label in getattr(self, 'missile_status_labels', []):
+            label.deleteLater()
+    
+        # Create missile status labels in bottom-left layout
         self.missile_status_labels = []
-        for drone in self.sim_manager.drones:
-            label = QLabel(f"Drone {drone.drone_id}: Missile 0/{drone.max_missiles} fired - Alive")
+        for i, drone in enumerate(self.drones):
+            label = QLabel(f"Drone {drone.drone_id}: 0/2 missiles fired, 0 active - Alive", self)
             label.setStyleSheet("font-size: 12px; color: green; background-color: rgba(255,255,255,150); padding: 2px; border-radius: 3px;")
-            self.status_layout.addWidget(label)
+            
+            # Add to the missile status layout (bottom-left)
+            self.missile_status_layout.addWidget(label)
             self.missile_status_labels.append(label)
 
-        # Timer setup
-        self.timer = QTimer()
-        self.timer.setInterval(50)
-        self.timer.timeout.connect(self.update_simulation)
-        self.simulation_running = False
+    def _create_target_with_valid_position(self):
+        """Create a target in a valid position"""
+        import random
+        
+        # Create different types of targets
+        target_type = random.choice(["static", "linear", "circular", "waypoint", "random"])
+        
+        # Find valid position for target
+        valid_position = self.find_valid_position(width=20, height=20, margin=40)
+        
+        if target_type == "static":
+            self.target = target(target_id=1, position=valid_position, height=20, width=20)
+        elif target_type == "linear":
+            self.target = target(target_id=1, position=valid_position, height=20, width=20, is_moving_target=True)
+            self.target.set_linear_movement(direction=[1, 0.5], speed=3.0)
+        elif target_type == "circular":
+            # For circular targets, make sure the circle doesn't intersect obstacles
+            center_pos = self.find_valid_position(width=160, height=160, margin=80)  # Larger area for circle
+            self.target = target(target_id=1, position=center_pos, height=20, width=20, is_moving_target=True)
+            self.target.set_circular_movement(center=center_pos, radius=60, angular_speed=0.03)
+        elif target_type == "waypoint":
+            self.target = target(target_id=1, position=valid_position, height=20, width=20, is_moving_target=True)
+            # Generate valid waypoints
+            self._set_valid_waypoints(self.target, num_waypoints=6)
+        elif target_type == "random":
+            self.target = target(target_id=1, position=valid_position, height=20, width=20, is_moving_target=True)
+            self.target.set_random_movement(direction_change_interval=2.0, speed=2.5)
+        
+        print(f"Created {target_type} target at safe position {valid_position}")
+
+    def _set_valid_waypoints(self, target_obj, num_waypoints=6):
+        """Generate valid waypoints that don't intersect obstacles"""
+        valid_waypoints = []
+        
+        for _ in range(num_waypoints):
+            waypoint_pos = self.find_valid_position(width=20, height=20, margin=30)
+            valid_waypoints.append(np.array(waypoint_pos, dtype=float))
+        
+        target_obj.movement_pattern = "waypoint"
+        target_obj.waypoints = valid_waypoints
+        target_obj.current_waypoint_index = 0
+        target_obj.path_complete = False
+        
+        print(f"Target {target_obj.target_id} valid waypoints: {valid_waypoints}")
 
     def toggle_simulation(self):
         """Toggle simulation start/pause"""
@@ -142,15 +255,59 @@ class MainWindow(QWidget):
             self.start_button.setText("Start Simulation")
 
     def reset_simulation(self):
-        """Reset the simulation"""
-        if self.simulation_running:
-            self.timer.stop()
-            self.simulation_running = False
-            self.start_button.setText("Start Simulation")
+        """Reset all drones and create new target"""
+    
+        # Clear existing missile status labels before creating new ones
+        for label in getattr(self, 'missile_status_labels', []):
+            label.deleteLater()
+        self.missile_status_labels = []
+    
+        # Reset drones to safe positions
+        for i, drone in enumerate(self.drones):
+            # Find valid position for each drone
+            valid_position = self.find_valid_position(width=20, height=20, margin=30)
+            
+            # Add offset for multiple drones
+            if i > 0:
+                for attempt in range(10):
+                    test_pos = (valid_position[0] + i * 40, valid_position[1] + i * 30)
+                    if self.is_position_valid(test_pos, width=20, height=20, margin=30):
+                        valid_position = test_pos
+                        break
+            
+            drone.position = np.array(valid_position, dtype=float)
+            drone.x, drone.y = valid_position[0], valid_position[1]
+            drone.velocity = np.zeros(2)
+            drone.alive = True
+            drone.has_attacked = False
+            drone.has_landed = False
+            
+            if hasattr(drone, 'returning_to_base'):
+                drone.returning_to_base = False
 
-        self.sim_manager.reset_simulation()
-        self.update_missile_display()
-        self.update()
+            drone.reset_missiles()
+            drone.current_path = []
+            drone.current_waypoint_index = 0
+            if hasattr(drone, 'current_path_timer'):
+                drone.current_path_timer = 0
+            
+            print(f"Reset drone {i} to safe position {valid_position}")
+
+        # Reset target
+        if self.target:
+            self.target.destroyed = False
+
+        # Create new target with valid position
+        self._create_target_with_valid_position()
+        
+        self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
+
+        # Reinitialize missile status labels after reset
+        for i, drone in enumerate(self.drones):
+            label = QLabel(f"Drone {drone.drone_id}: 0/2 missiles fired, 0 active - Alive", self)
+            label.setStyleSheet("font-size: 12px; color: green; background-color: rgba(255,255,255,150); padding: 2px; border-radius: 3px;")
+            self.missile_status_layout.addWidget(label)
+            self.missile_status_labels.append(label)
 
     def update_simulation(self):
         """Enhanced simulation update with target destruction handling"""
@@ -340,3 +497,44 @@ class MainWindow(QWidget):
     def closeEvent(self, event):
         print("Main window closed.")
         event.accept()
+
+    def is_position_valid(self, position, width=20, height=20, margin=10):
+        """Check if a position is valid (not inside obstacles with margin)"""
+        x, y = position
+        
+        # Check bounds
+        if x < 50 or x > 1000 or y < 100 or y > 600:
+            return False
+        
+        # Check collision with obstacles
+        for obstacle in self.obstacles:
+            # Add margin around obstacles
+            if (obstacle.x() - margin <= x <= obstacle.x() + obstacle.width() + margin and
+                obstacle.y() - margin <= y <= obstacle.y() + obstacle.height() + margin):
+                return False
+        
+        return True
+
+    def find_valid_position(self, width=20, height=20, margin=10, max_attempts=50):
+        """Find a valid spawn position that doesn't overlap with obstacles"""
+        import random
+        
+        for _ in range(max_attempts):
+            x = random.randint(50, 1000)
+            y = random.randint(100, 600)
+            
+            if self.is_position_valid((x, y), width, height, margin):
+                return (x, y)
+        
+        # Fallback to safe positions if no valid position found
+        safe_positions = [
+            (75, 125), (100, 150), (125, 175), (150, 200),  # Top-left area
+            (900, 500), (850, 450), (800, 400), (750, 350)  # Bottom-right area
+        ]
+        
+        for pos in safe_positions:
+            if self.is_position_valid(pos, width, height, margin):
+                return pos
+        
+        # Last resort - return a position far from obstacles
+        return (75, 125)

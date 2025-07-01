@@ -130,3 +130,44 @@ class SimulationManager:
                             direction /= np.linalg.norm(direction)
                             drone.position += direction * 2
                             other.position -= direction * 2
+
+    def is_position_valid(self, position, width=20, height=20, margin=10):
+        """Check if a position is valid (not inside obstacles with margin)"""
+        x, y = position
+        
+        # Check bounds
+        if x < 50 or x > 1000 or y < 100 or y > 600:
+            return False
+        
+        # Check collision with obstacles
+        for obstacle in self.obstacles:
+            # Add margin around obstacles
+            if (obstacle.x() - margin <= x <= obstacle.x() + obstacle.width() + margin and
+                obstacle.y() - margin <= y <= obstacle.y() + obstacle.height() + margin):
+                return False
+        
+        return True
+
+    def find_valid_position(self, width=20, height=20, margin=10, max_attempts=50):
+        """Find a valid spawn position that doesn't overlap with obstacles"""
+        import random
+        
+        for _ in range(max_attempts):
+            x = random.randint(50, 1000)
+            y = random.randint(100, 600)
+            
+            if self.is_position_valid((x, y), width, height, margin):
+                return (x, y)
+        
+        # Fallback to safe positions if no valid position found
+        safe_positions = [
+            (75, 125), (100, 150), (125, 175), (150, 200),  # Top-left area
+            (900, 500), (850, 450), (800, 400), (750, 350)  # Bottom-right area
+        ]
+        
+        for pos in safe_positions:
+            if self.is_position_valid(pos, width, height, margin):
+                return pos
+        
+        # Last resort - return a position far from obstacles
+        return (75, 125)
