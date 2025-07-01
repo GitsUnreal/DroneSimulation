@@ -13,7 +13,7 @@ class MainController:
     avoiding obstacles, and updating their positions.
     """
 
-    def __init__(self, drones, obstacles, target):
+    def __init__(self, drones, obstacles = None, target = None, base = None):
         """
         Initialize the MovementController with drones, obstacles, and target.
         :param drones: List of drone objects that will be controlled.
@@ -23,6 +23,7 @@ class MainController:
         self.drones = drones
         self.obstacles = obstacles
         self.target = target
+        self.base = base
 
         # Initialize Boids and OAI with drones and their velocities
         self.boids = Boids(self.drones)
@@ -116,7 +117,7 @@ class MainController:
                     drone.current_path = path if path else []
                     drone.current_waypoint_index = 0
                     drone.path_id = f"drone_{i}_path_{len(drone.current_path)}"
-                    print(f"Drone {drone.id}: Individual path calculated with {len(drone.current_path)} waypoints (ID: {drone.path_id})")
+                    # print(f"Drone {drone.id}: Individual path calculated with {len(drone.current_path)} waypoints (ID: {drone.path_id})")
         
             # Determine movement strategy
             if collision_detected and (not hasattr(drone, 'current_path') or not drone.current_path):
@@ -139,7 +140,7 @@ class MainController:
                 # Check if we've reached the current waypoint
                 if distance_to_waypoint < 25:  # Increased threshold for more reliable waypoint following
                     drone.current_waypoint_index += 1
-                    print(f"Drone {drone.id}: Reached waypoint {drone.current_waypoint_index-1}")
+                    # print(f"Drone {drone.id}: Reached waypoint {drone.current_waypoint_index-1}")
                     
                     # Check if we've reached the end of the path
                     if drone.current_waypoint_index >= len(drone.current_path):
@@ -173,10 +174,31 @@ class MainController:
             drone.sync_from_position()
 
             # Check if drone is close to target and initiate attack
-            if self.droneToTargetDistance(drone) < 100:
+            if self.droneToTargetDistance(drone) < 100 and not drone.has_attacked:
+                if drone.can_fire_missile():
                     print(f"Drone {drone.id} is close to target, initiating attack.")
                     drone.attack(drone, self.target, self.oai, self.grid)
-                    drone.current_path = [] # Place holder for returning to base or next target
+
+                    if drone.missiles_fired >= drone.max_missiles:
+                        drone.has_attacked = True
+                        print(f"Drone {drone.id} has fired all missiles and will return to base")
+                    else:
+                        print(f"Drone {drone.id} has fired a missile at the target. Missiles remaining: {drone.max_missiles - drone.missiles_fired}")
+                else:
+                    print(f"Drone {drone.id} is close to target but has no missiles remaining!")
+                    drone.has_attacked = True
+
+            if drone.has_attacked:
+                # Return to base if attacked
+                drone.current_path = []
+                start = self.snap_to_grid(drone.position)
+                base_goal = self.snap_to_grid((self.base.x(), self.base.y()))
+
+                base_path = self.oai.find_path(self.grid, start, base_goal, drone)
+                drone.current_path = base_path if base_path else []
+                drone.current_waypoint_index = 0
+                drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
+                # print(f"Drone {drone.id}: Returning to base with {len(drone.current_path)} waypoints (ID: {drone.path_id})")
 
     def droneToTargetDistance(self, drone):
         """
@@ -187,5 +209,5 @@ class MainController:
         target_pos = np.array([self.target.x(), self.target.y()])
         to_target = target_pos - drone.position
         distance_to_target = np.linalg.norm(to_target)
-        return distance_to_target 
+        return distance_to_target
 

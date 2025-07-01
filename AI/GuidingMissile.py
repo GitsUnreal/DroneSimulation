@@ -26,8 +26,13 @@ class GuidingMissile:
         :param start: The starting position as a (x, y) tuple.
         :param goal: The goal position as a (x, y) tuple.
         :param requesting_drone: The drone requesting the path (for individual pathfinding).
-        :return: A list of positions representing the path from start to goal.
+        :return: True if missile was successfully created, False otherwise.
         """
+        # Check if drone can fire missile
+        if not self.drone.can_fire_missile():
+            print(f"Drone {self.drone.id}: Cannot fire missile - limit reached or drone destroyed")
+            return False
+        
         # Find path for the missile
         path = self.oai.find_path(self.grid, start, goal, requesting_drone)
         
@@ -38,7 +43,8 @@ class GuidingMissile:
             'path': path if path else [],
             'path_index': 0,
             'active': True,
-            'speed': 3.0  # Missile speed
+            'speed': 3.0,
+            'missile_id': f"drone_{self.drone.id}_missile_{self.drone.missiles_fired + 1}"
         }
         
         # Store missile for later painting and updating by MainWindow
@@ -48,9 +54,4 @@ class GuidingMissile:
         
         print(f"Missile launched from {start} to {goal} with {len(missile_data['path'])} waypoints")
         
-        return path
-
-    # Remove the paintMissile method or comment it out
-    # def paintMissile(self, missile_rect):
-    #     # This should be handled by MainWindow's paintEvent
-    #     pass
+        return True

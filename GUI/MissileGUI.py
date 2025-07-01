@@ -1,5 +1,4 @@
 import numpy as np
-from AI.GuidingMissile import GuidingMissile
 
 def update_missiles(drones):
     """Update missile positions and remove inactive missiles"""
@@ -61,3 +60,4 @@ def update_missiles(drones):
             
             # Update drone's missile list with only active missiles
             drone.missiles = active_missiles
+

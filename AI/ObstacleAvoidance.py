@@ -73,11 +73,10 @@ class OAI:
                 requesting_drone.current_path = []
                 requesting_drone.current_waypoint_index = 0
                 requesting_drone.current_path_timer = 0
-                print(f"Drone path timeout - recomputing path")
         
         # Make sure start and goal are in the grid
         if start not in grid or goal not in grid:
-            print(f"Start {start} or goal {goal} not in grid")
+            # print(f"Start {start} or goal {goal} not in grid")
             return []
         
         # If start or goal is blocked, find nearest unblocked cell
@@ -101,8 +100,6 @@ class OAI:
             current = min(open_set, key=lambda pos: f_score.get(pos, float('inf')))
             if current == goal:
                 path = self.reconstruct_path(came_from, current)
-                if requesting_drone:
-                    print(f"Individual path found for drone with {len(path)} waypoints")
                 return path
 
             open_set.remove(current)
@@ -114,7 +111,7 @@ class OAI:
                     f_score[neighbor] = tentative_g_score + self.heuristic(neighbor, goal)
                     open_set.add(neighbor)
 
-        print("No individual path found")
+        # print("No individual path found")
         return []
 
     def create_dynamic_grid(self, base_grid, requesting_drone):

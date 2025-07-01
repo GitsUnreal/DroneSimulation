@@ -15,7 +15,12 @@ class Drone:
         self.y = float(self.position[1])
         self.alive = True
         self.id = id
-
+        self.has_attacked = False
+        
+        # Missile management
+        self.max_missiles = 2
+        self.missiles_fired = 0 
+        
         self.current_path = []
         self.current_waypoint_index = 0
 
@@ -85,16 +90,18 @@ class Drone:
         """
         return not self.alive
     
+    def can_fire_missile(self):
+        """Check if drone can fire another missile"""
+        return self.missiles_fired < self.max_missiles and self.alive
+
     def attack(self, drone, target, oai, grid):
         """
         Attack the target.
         This method can be extended to include attack logic.
-        :param drone: The drone that is attacking.
-        :param target: The target to attack.
-        :param oai: Obstacle Avoidance Instance for pathfinding.
-        :param grid: The grid used for pathfinding.
         """
-        if not self.alive:
+        if not self.alive or not self.can_fire_missile():
+            if not self.can_fire_missile():
+                print(f"Drone {self.id}: No missiles remaining ({self.missiles_fired}/{self.max_missiles})")
             return
         
         # Convert position array to tuple
@@ -102,5 +109,17 @@ class Drone:
         target_pos = (float(target.x()), float(target.y()))
         
         self.guiding_missile = GuidingMissile(drone, target, oai, grid)
-        self.guiding_missile.shootMissile(start_pos, target_pos)
+        success = self.guiding_missile.shootMissile(start_pos, target_pos)
         
+        if success:
+            self.missiles_fired += 1
+            print(f"Drone {self.id}: Missile fired! ({self.missiles_fired}/{self.max_missiles} used)")
+        
+    def reset_missiles(self):
+        """Reset missile count for new mission"""
+        self.missiles_fired = 0
+        if hasattr(self, 'missiles'):
+            self.missiles = []
+
+
+
