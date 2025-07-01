@@ -1,5 +1,6 @@
 from AI.ObstacleAvoidance import OAI
 from AI.Boids import Boids
+from AI.MissileManager import MissileManager, MissileType
 import numpy as np
 
 WIDTH, HEIGHT, CELL_SIZE = 1080, 720, 20
@@ -15,6 +16,9 @@ class MainController:
         self.oai = OAI(self.drones, self.obstacles, CELL_SIZE)
         self.grid = self.oai.make_grid()
         self.oai.add_neighbors(self.grid)  # Only call once here
+
+        # Add missile manager
+        self.missile_manager = MissileManager(self.oai, self.grid)
 
         print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
         print(f"Grid created with {len(self.grid)} cells.")
@@ -150,18 +154,27 @@ class MainController:
             drone.constrain_to_bounds(WIDTH, HEIGHT)
             drone.sync_from_position()
 
-            # Attack logic - FIXED to allow multiple missiles
+            # Update missiles
+            self.missile_manager.update_missiles(0.05, self.drones, self.obstacles)  # dt = 50ms
+            
+            # Modified attack logic to use new missile system
             if self.distance_to_target(drone) < 100 and not drone.has_attacked:
                 if drone.can_fire_missile():
-                    print(f"Drone {drone.drone_id} attacking target.")
-                    drone.attack(drone, self.target, self.oai, self.grid)
+                    print(f"Drone {drone.drone_id} attacking target with missile system.")
                     
-                    # Only mark as attacked when all missiles are used
-                    if drone.missiles_fired >= drone.max_missiles:
+                    # Choose missile type based on conditions
+                    missile_type = MissileType.HOMING if self.distance_to_target(drone) > 50 else MissileType.STANDARD
+                    
+                    success = self.missile_manager.fire_missile(
+                        drone, 
+                        (self.target.x(), self.target.y()), 
+                        missile_type
+                    )
+                    
+                    if success and drone.missiles_fired >= drone.max_missiles:
                         drone.has_attacked = True
                         print(f"Drone {drone.drone_id} has no missiles left and is returning.")
                 else:
-                    print(f"Drone {drone.drone_id} is out of missiles.")
                     drone.has_attacked = True
 
             # Return to base logic - FIXED

@@ -1,5 +1,5 @@
 import numpy as np
-from .GuidingMissile import GuidingMissile
+from AI.MissileSystem import MissileType
 
 class Drone:
     def __init__(self, position, velocity, drone_id):
@@ -58,6 +58,25 @@ class Drone:
         if guiding_missile.shoot_missile(start, target_pos):
             self.missiles_fired += 1
             print(f"Drone {self.drone_id}: Fired missile ({self.missiles_fired}/{self.max_missiles})")
+
+    def attack_with_missile_system(self, target, missile_manager, missile_type=MissileType.STANDARD):
+        """Enhanced attack method using new missile system"""
+        if not self.can_fire_missile():
+            print(f"Drone {self.drone_id}: Cannot fire missile ({self.missiles_fired}/{self.max_missiles})")
+            return False
+
+        target_pos = (target.x(), target.y())
+        
+        # Choose missile type based on distance or drone state
+        if hasattr(self, 'missile_preference'):
+            missile_type = self.missile_preference
+        
+        success = missile_manager.fire_missile(self, target_pos, missile_type)
+        
+        if success:
+            print(f"Drone {self.drone_id}: Fired {missile_type.value} missile ({self.missiles_fired}/{self.max_missiles})")
+        
+        return success
 
     def reset_missiles(self):
         """Reset missile count and clear missiles."""
