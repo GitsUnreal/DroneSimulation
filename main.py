@@ -9,12 +9,6 @@ def main():
     main_window = MainWindow()
     main_window.show()
 
-    # Initialize MovementController with drones and obstacles
-    drones = main_window.drones
-    obstacles = main_window.obstacles
-    target = main_window.target
-    mainController = MainController(drones, obstacles, target)
-
     sys.exit(app.exec_())
 
 

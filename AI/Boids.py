@@ -1,16 +1,12 @@
 import numpy as np
 
-DESIRED_SEPARATION = 60  # Increased from 25 to 40
+# Behavior constants
+DESIRED_SEPARATION = 60
 NEIGHBOR_RADIUS = 100
-MAX_SPEED = 4.0  # Reduced from 10 to 8 for better control
+MAX_SPEED = 4.0
 
 def distance(boid1, boid2):
-    """
-    Calculate the distance between two boids.
-    :param boid1: First boid object.
-    :param boid2: Second boid object.
-    :return: Distance between the two boids.
-    """
+    """Calculate Euclidean distance between two boids."""
     return np.linalg.norm(np.array(boid1.position) - np.array(boid2.position))
 
 class Boids:
@@ -18,128 +14,90 @@ class Boids:
         self.drones = [d for d in drones if d.alive]
 
     def limit_speed(self, velocity):
-        """
-        Limit the speed of the drone's velocity to a maximum value.
-        :param velocity: The current velocity vector of the drone.
-        :return: The limited velocity vector.
-        """
+        """Limit a velocity vector to MAX_SPEED."""
         speed = np.linalg.norm(velocity)
-        if speed > MAX_SPEED:
-            return (velocity / speed) * MAX_SPEED
-        else:
-            return velocity
+        return (velocity / speed) * MAX_SPEED if speed > MAX_SPEED else velocity
 
     def update(self):
-        """
-        Update the positions of all drones based on Boids behavior.
-        This method applies separation, alignment, and cohesion rules to each drone.
-        """
-
+        """Update all drones' velocities and positions based on Boids rules."""
         for drone in self.drones:
             sep = self.compute_separation(drone)
             ali = self.compute_alignment(drone)
             coh = self.compute_cohesion(drone)
 
-            # Stronger separation, weaker alignment and cohesion
+            # Combine forces with tuned weights
             drone.velocity += 3.0 * sep + 0.5 * ali + 0.5 * coh
             drone.velocity = self.limit_speed(drone.velocity)
             drone.position += drone.velocity
 
     def compute_separation(self, drone):
-        """
-        Compute the separation force for a drone to avoid crowding neighbors.
-        :param drone: The drone object for which to compute separation.
-        :return: A vector representing the separation force.
-        """
-
+        """Return a force vector to keep drone separated from nearby drones."""
         steer = np.zeros(2)
         count = 0
+
         for other in self.drones:
-            if other is not drone and other.alive and drone.alive:
+            if other is not drone and other.alive:
                 dist = distance(drone, other)
-                if dist < DESIRED_SEPARATION and dist > 0:
-                    # Stronger repulsion when closer
-                    diff = drone.position - other.position
-                    diff = diff / dist  # Normalize and weight by distance
-                    diff = diff / dist  # Weight inversely by distance again for stronger effect
+                if 0 < dist < DESIRED_SEPARATION:
+                    diff = (drone.position - other.position) / (dist ** 2)
                     steer += diff
                     count += 1
-        
+
         if count > 0:
-            steer = steer / count
-            # Normalize and apply max separation force
-            if np.linalg.norm(steer) > 0:
-                steer = (steer / np.linalg.norm(steer)) * MAX_SPEED
-                steer = steer - drone.velocity
-        
+            steer /= count
+            norm = np.linalg.norm(steer)
+            if norm > 0:
+                steer = (steer / norm) * MAX_SPEED - drone.velocity
+
         return steer
-    
+
     def compute_alignment(self, drone):
-        """
-        Compute the alignment force for a drone to match the average velocity of nearby drones.
-        :param drone: The drone object for which to compute alignment.
-        :return: A vector representing the alignment force.
-        """
+        """Return a force vector to align with nearby drones' average velocity."""
         avg_vel = np.zeros(2)
         count = 0
+
         for other in self.drones:
             if other is not drone and other.alive and distance(drone, other) < NEIGHBOR_RADIUS:
                 avg_vel += other.velocity
                 count += 1
-        return (avg_vel / count - drone.velocity) if count > 0 else np.zeros(2)
-    
+
+        return (avg_vel / count - drone.velocity) if count else np.zeros(2)
+
     def compute_cohesion(self, drone):
-        """
-        Compute the cohesion force for a drone to move towards the center of mass of nearby drones.
-        :param drone: The drone object for which to compute cohesion.
-        :return: A vector representing the cohesion force.
-        """
+        """Return a force vector to steer drone toward the center of mass of neighbors."""
         center_mass = np.zeros(2)
         count = 0
+
         for other in self.drones:
             if other is not drone and other.alive and distance(drone, other) < NEIGHBOR_RADIUS:
                 center_mass += other.position
                 count += 1
-        return (center_mass / count - drone.position) * 0.01 if count > 0 else np.zeros(2)  # Weaker cohesion
+
+        return (center_mass / count - drone.position) * 0.01 if count else np.zeros(2)
 
     def reset(self):
-        """
-        Reset the Boids behavior for all drones.
-        This method can be used to reset the state of drones before starting a new simulation.
-        """
+        """Reset each drone's Boids behavior (e.g. velocity, state)."""
         for drone in self.drones:
             drone.reset_boids_behavior()
 
     def get_positions(self):
-        """
-        Get the current positions of all drones.
-        :return: A list of tuples representing the positions of each drone.
-        """
-        return [(drone.x, drone.y) for drone in self.drones if drone.alive]
-    
+        """Return list of positions for all alive drones."""
+        return [tuple(drone.position) for drone in self.drones if drone.alive]
+
     def get_velocities(self):
-        """
-        Get the current velocities of all drones.
-        :return: A list of tuples representing the velocities of each drone.
-        """
-        return [(drone.velocity[0], drone.velocity[1]) for drone in self.drones if drone.alive]
-    
+        """Return list of velocities for all alive drones."""
+        return [tuple(drone.velocity) for drone in self.drones if drone.alive]
+
     def get_boids_info(self):
-        """
-        Get detailed information about the drones.
-        :return: A list of dictionaries containing position, velocity, and alive status of each drone.
-        """
+        """Return detailed state of all drones."""
         return [{
-            'position': (drone.x, drone.y),
-            'velocity': (drone.velocity[0], drone.velocity[1]),
+            'position': tuple(drone.position),
+            'velocity': tuple(drone.velocity),
             'alive': drone.alive
         } for drone in self.drones]
-    
+
     def get_boids_summary(self):
-        """
-        Get a summary of the Boids simulation.
-        :return: A dictionary containing the count of alive and dead drones, and their positions and velocities.
-        """
+        """Return summary including count and states of drones."""
         return {
             'alive_count': self.get_boids_count(),
             'dead_count': self.get_dead_boids_count(),
@@ -147,5 +105,8 @@ class Boids:
             'velocities': self.get_velocities()
         }
 
+    def get_boids_count(self):
+        return sum(1 for d in self.drones if d.alive)
 
-
+    def get_dead_boids_count(self):
+        return sum(1 for d in self.drones if not d.alive)
