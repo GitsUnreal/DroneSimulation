@@ -1,7 +1,7 @@
 import numpy as np
 
 # Behavior constants
-DESIRED_SEPARATION = 60
+DESIRED_SEPARATION = 30
 NEIGHBOR_RADIUS = 100
 MAX_SPEED = 4.0
 
@@ -11,7 +11,8 @@ def distance(boid1, boid2):
 
 class Boids:
     def __init__(self, drones):
-        self.drones = [d for d in drones if d.alive]
+        # Only include active drones (not landed ones)
+        self.drones = [d for d in drones if d.alive and not (hasattr(d, 'has_landed') and d.has_landed)]
 
     def limit_speed(self, velocity):
         """Limit a velocity vector to MAX_SPEED."""
@@ -36,7 +37,10 @@ class Boids:
         count = 0
 
         for other in self.drones:
-            if other is not drone and other.alive:
+            # Skip landed drones
+            if (other is not drone and 
+                other.alive and 
+                not (hasattr(other, 'has_landed') and other.has_landed)):
                 dist = distance(drone, other)
                 if 0 < dist < DESIRED_SEPARATION:
                     diff = (drone.position - other.position) / (dist ** 2)
@@ -57,7 +61,10 @@ class Boids:
         count = 0
 
         for other in self.drones:
-            if other is not drone and other.alive and distance(drone, other) < NEIGHBOR_RADIUS:
+            if (other is not drone and 
+                other.alive and 
+                not (hasattr(other, 'has_landed') and other.has_landed) and
+                distance(drone, other) < NEIGHBOR_RADIUS):
                 avg_vel += other.velocity
                 count += 1
 
@@ -69,7 +76,10 @@ class Boids:
         count = 0
 
         for other in self.drones:
-            if other is not drone and other.alive and distance(drone, other) < NEIGHBOR_RADIUS:
+            if (other is not drone and 
+                other.alive and 
+                not (hasattr(other, 'has_landed') and other.has_landed) and
+                distance(drone, other) < NEIGHBOR_RADIUS):
                 center_mass += other.position
                 count += 1
 

@@ -75,7 +75,7 @@ class StatusChecker:
         return collisions_detected, pathfinding_active, stuck_drones
 
     def run_periodic_checks(self, drones, obstacles, toggle_simulation_callback):
-        """Run all checks every 60 frames"""
+        """Enhanced periodic checks with alert integration"""
         self.check_counter += 1
         if self.check_counter % 60 == 0:
             # Check 1: Drone States
@@ -87,10 +87,11 @@ class StatusChecker:
             # Check 3: System Performance
             collisions, pathfinding, stuck = self.check_system_performance(drones, obstacles)
             
-            # Optional: Auto-pause on mission complete
+            # Show mission complete alert if needed
             if mission_complete:
                 toggle_simulation_callback()
                 print("🏁 Simulation paused - Mission Complete!")
+                return mission_complete, collisions, stuck
             
             return mission_complete, collisions, stuck
         return False, 0, 0

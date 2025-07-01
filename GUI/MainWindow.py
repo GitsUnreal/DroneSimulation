@@ -8,6 +8,9 @@ from GUI.DebugPanel import DebugPanel
 from GUI.StatusChecker import StatusChecker
 from GUI.Renderer import Renderer
 from GUI.SimulationManager import SimulationManager
+from GUI.PerformancePanel import PerformancePanel
+from GUI.StatisticsPanel import StatisticsPanel
+from GUI.AlertSystem import AlertSystem
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -23,6 +26,11 @@ class MainWindow(QWidget):
         self.debug_panel = DebugPanel(self)
         self.status_checker = StatusChecker()
         self.renderer = Renderer()
+
+        # Add new monitoring components
+        self.performance_panel = PerformancePanel(self)
+        self.statistics_panel = StatisticsPanel(self)
+        self.alert_system = AlertSystem(self)
 
         # Visual toggles
         self.show_grid = False
@@ -51,7 +59,7 @@ class MainWindow(QWidget):
         main_layout.setSpacing(0)
 
     def create_control_bar(self):
-        """Create the control button bar"""
+        """Create the control button bar with new monitoring buttons"""
         control_bar = QHBoxLayout()
         
         # Simulation controls
@@ -81,11 +89,24 @@ class MainWindow(QWidget):
         self.debug_button.setStyleSheet("background-color: lightgray; font-size: 10px; border-radius: 3px;")
         self.debug_button.clicked.connect(self.toggle_debug)
 
+        # Add monitoring buttons
+        self.stats_button = QPushButton("Stats")
+        self.stats_button.setFixedSize(50, 25)
+        self.stats_button.setStyleSheet("background-color: lightcyan; font-size: 10px; border-radius: 3px;")
+        self.stats_button.clicked.connect(self.toggle_statistics)
+
+        self.perf_button = QPushButton("Perf")
+        self.perf_button.setFixedSize(50, 25)
+        self.perf_button.setStyleSheet("background-color: lightpink; font-size: 10px; border-radius: 3px;")
+        self.perf_button.clicked.connect(self.toggle_performance)
+
         control_bar.addWidget(self.start_button)
         control_bar.addWidget(self.reset_button)
         control_bar.addWidget(self.grid_button)
         control_bar.addWidget(self.path_button)
         control_bar.addWidget(self.debug_button)
+        control_bar.addWidget(self.stats_button)
+        control_bar.addWidget(self.perf_button)
         control_bar.addStretch()
 
         return control_bar
@@ -130,7 +151,7 @@ class MainWindow(QWidget):
         self.update()
 
     def update_simulation(self):
-        """Main simulation update loop"""
+        """Enhanced simulation update with monitoring"""
         self.sim_manager.handle_collisions()
         self.sim_manager.movement_controller.update_drones()
         update_missiles(self.sim_manager.drones)
@@ -147,7 +168,35 @@ class MainWindow(QWidget):
         if self.show_debug:
             self.debug_panel.update_info(self.sim_manager.drones, self.sim_manager.movement_controller)
         
+        # Update monitoring panels
+        if self.performance_panel.is_visible:
+            self.performance_panel.update_metrics(self.sim_manager.drones, self.sim_manager.movement_controller)
+        
+        if self.statistics_panel.is_visible:
+            self.statistics_panel.update_statistics(self.sim_manager.drones, self.sim_manager.movement_controller)
+        
+        # Check for alerts
+        self.check_for_alerts()
+        
         self.update()
+
+    def check_for_alerts(self):
+        """Check for events that should trigger alerts"""
+        for drone in self.sim_manager.drones:
+            # Check if drone just destroyed
+            if not drone.alive and not hasattr(drone, '_destruction_alerted'):
+                self.alert_system.show_drone_destroyed_alert(drone.drone_id)
+                drone._destruction_alerted = True
+            
+            # Check if drone just fired all missiles
+            if drone.missiles_fired >= drone.max_missiles and not hasattr(drone, '_missiles_alerted'):
+                self.alert_system.show_all_missiles_fired_alert(drone.drone_id)
+                drone._missiles_alerted = True
+            
+            # Check if drone just landed
+            if hasattr(drone, 'has_landed') and drone.has_landed and not hasattr(drone, '_landing_alerted'):
+                self.alert_system.show_drone_landed_alert(drone.drone_id)
+                drone._landing_alerted = True
 
     def update_missile_display(self):
         """Update missile status labels"""
@@ -223,6 +272,24 @@ class MainWindow(QWidget):
             self.debug_panel.hide_panel()
         
         print(f"Debug panel: {'ON' if self.show_debug else 'OFF'}")
+
+    def toggle_statistics(self):
+        """Toggle statistics panel"""
+        if self.statistics_panel.is_visible:
+            self.statistics_panel.hide_panel()
+            self.stats_button.setStyleSheet("background-color: lightcyan; font-size: 10px; border-radius: 3px;")
+        else:
+            self.statistics_panel.show_panel()
+            self.stats_button.setStyleSheet("background-color: lightgreen; font-size: 10px; border-radius: 3px;")
+
+    def toggle_performance(self):
+        """Toggle performance panel"""
+        if self.performance_panel.is_visible:
+            self.performance_panel.hide_panel()
+            self.perf_button.setStyleSheet("background-color: lightpink; font-size: 10px; border-radius: 3px;")
+        else:
+            self.performance_panel.show_panel()
+            self.perf_button.setStyleSheet("background-color: lightgreen; font-size: 10px; border-radius: 3px;")
 
     def closeEvent(self, event):
         print("Main window closed.")

@@ -110,7 +110,10 @@ class OAI:
         blocked_positions = set()
         
         for drone in self.drones:
-            if drone != requesting_drone and drone.alive:
+            # Skip requesting drone, destroyed drones, AND landed drones
+            if (drone != requesting_drone and 
+                drone.alive and 
+                not (hasattr(drone, 'has_landed') and drone.has_landed)):
                 pos = self.snap_to_grid(drone.position)
                 blocked_positions.add(pos)
         
