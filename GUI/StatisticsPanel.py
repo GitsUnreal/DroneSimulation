@@ -16,7 +16,8 @@ class StatisticsPanel(QWidget):
 
     def init_ui(self):
         """Initialize the statistics panel UI"""
-        self.setFixedSize(300, 250)
+        self.setFixedWidth(300)
+        self.setMinimumHeight(400)
         self.setStyleSheet("""
             QWidget {
                 background-color: rgba(20, 20, 40, 220);
@@ -39,15 +40,15 @@ class StatisticsPanel(QWidget):
         
         # Mission Info Section
         mission_frame = self._create_section("Mission Info")
-        layout.addWidget(mission_frame)
+        layout.addWidget(mission_frame, stretch=1)
         
         # Drone Stats Section
         drone_frame = self._create_section("Drone Statistics")
-        layout.addWidget(drone_frame)
+        layout.addWidget(drone_frame, stretch=2)
         
         # Performance Section
         perf_frame = self._create_section("Performance")
-        layout.addWidget(perf_frame)
+        layout.addWidget(perf_frame, stretch=1)
         
         self.setLayout(layout)
         self.hide()

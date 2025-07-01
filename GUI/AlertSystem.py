@@ -127,14 +127,19 @@ class AlertSystem:
         if self.fade_animation:
             try:
                 self.fade_animation.finished.disconnect()
-            except TypeError:
-                # Signal was already disconnected or never connected
+            except (TypeError, RuntimeError):
+                # Signal was already disconnected, never connected, or object deleted
                 pass
     
-        self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.fade_animation.setDuration(500)
-        self.fade_animation.setStartValue(1.0)
-        self.fade_animation.setEndValue(0.0)
-        self.fade_animation.setEasingCurve(QEasingCurve.InOutQuad)
-        self.fade_animation.finished.connect(self.alert_label.hide)
-        self.fade_animation.start()
+        # Create new fade-out animation
+        if hasattr(self, 'opacity_effect') and self.opacity_effect is not None:
+            self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
+            self.fade_animation.setDuration(500)
+            self.fade_animation.setStartValue(1.0)
+            self.fade_animation.setEndValue(0.0)
+            self.fade_animation.setEasingCurve(QEasingCurve.InOutQuad)
+            self.fade_animation.finished.connect(self.alert_label.hide)
+            self.fade_animation.start()
+        else:
+            # Fallback: hide immediately if no opacity effect
+            self.alert_label.hide()

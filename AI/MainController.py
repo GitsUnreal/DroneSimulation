@@ -35,7 +35,8 @@ class MainController:
 
     def update_drones(self):
         for i, drone in enumerate(self.drones):
-            if drone.is_destroyed():
+            # Skip destroyed drones AND landed drones
+            if drone.is_destroyed() or (hasattr(drone, 'has_landed') and drone.has_landed):
                 continue
 
             drone.update_position_sync()
@@ -76,6 +77,19 @@ class MainController:
                         break
                 if collision_detected:
                     break
+
+            # Drone-to-drone collision avoidance - only with active drones
+            for other in self.drones:
+                if (other is not drone and 
+                    other.alive and 
+                    not (hasattr(other, 'has_landed') and other.has_landed)):
+                    dist = np.linalg.norm(drone.position - other.position)
+                    if dist < 20:
+                        direction = drone.position - other.position
+                        if np.linalg.norm(direction) > 0:
+                            direction /= np.linalg.norm(direction)
+                            drone.position += direction * 2
+                            other.position -= direction * 2
 
             # Pathfinding for obstacles
             if not hasattr(drone, 'current_path') or not drone.current_path:
