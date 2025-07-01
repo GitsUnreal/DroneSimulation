@@ -85,12 +85,22 @@ class Drone:
         """
         return not self.alive
     
-    def attack(self, target):
+    def attack(self, drone, target, oai, grid):
         """
         Attack the target.
         This method can be extended to include attack logic.
+        :param drone: The drone that is attacking.
         :param target: The target to attack.
+        :param oai: Obstacle Avoidance Instance for pathfinding.
+        :param grid: The grid used for pathfinding.
         """
         if not self.alive:
             return
-        GuidingMissile(target)  # Placeholder for missile logic
+        
+        # Convert position array to tuple
+        start_pos = (float(self.position[0]), float(self.position[1]))
+        target_pos = (float(target.x()), float(target.y()))
+        
+        self.guiding_missile = GuidingMissile(drone, target, oai, grid)
+        self.guiding_missile.shootMissile(start_pos, target_pos)
+        

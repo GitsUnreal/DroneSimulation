@@ -5,6 +5,7 @@ from PyQt5.QtGui import QPainter, QColor
 from AI.Drone import Drone 
 from GUI.ControlPanel import ControlPanel
 from AI.MainController import MainController
+from GUI.MissileGUI import update_missiles
 import random
 import numpy as np
 
@@ -136,6 +137,8 @@ class MainWindow(QWidget):
         # Use the movement controller for pathfinding
         self.movement_controller.move_drones()
         
+        update_missiles(self.drones)
+        
         self.update()
 
     def paintEvent(self, event):
@@ -145,7 +148,8 @@ class MainWindow(QWidget):
         # Draw Drone
         painter.setBrush(QColor(0, 120, 215))
         for drone in self.drones:
-            painter.drawEllipse(int(drone.x), int(drone.y), 20, 20)
+            if drone.alive:
+                painter.drawEllipse(int(drone.x), int(drone.y), 20, 20)
 
         # Draw Obstacles
         painter.setBrush(QColor(200, 50, 50))
@@ -155,6 +159,17 @@ class MainWindow(QWidget):
         # Draw Target
         painter.setBrush(QColor(50, 200, 50))
         painter.drawRect(self.target)
+
+        painter.setBrush(QColor(255, 0, 0))  # Red missiles
+        for drone in self.drones:
+            if hasattr(drone, 'missiles'):
+                for missile in drone.missiles:
+                    if missile['active']:
+                        # Ensure coordinates are integers
+                        missile_x = int(round(float(missile['position'][0])))
+                        missile_y = int(round(float(missile['position'][1])))
+                        painter.drawEllipse(missile_x - 3, missile_y - 3, 6, 6)
+    
         painter.end()
 
     def closeEvent(self, event):

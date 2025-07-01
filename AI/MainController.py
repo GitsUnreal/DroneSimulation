@@ -172,3 +172,20 @@ class MainController:
             drone.constrain_to_bounds(WIDTH, HEIGHT)
             drone.sync_from_position()
 
+            # Check if drone is close to target and initiate attack
+            if self.droneToTargetDistance(drone) < 100:
+                    print(f"Drone {drone.id} is close to target, initiating attack.")
+                    drone.attack(drone, self.target, self.oai, self.grid)
+                    drone.current_path = [] # Place holder for returning to base or next target
+
+    def droneToTargetDistance(self, drone):
+        """
+        Calculate the distance from the drone to the target.
+        :param drone: The drone object for which to calculate the distance.
+        :return: The distance to the target.
+        """
+        target_pos = np.array([self.target.x(), self.target.y()])
+        to_target = target_pos - drone.position
+        distance_to_target = np.linalg.norm(to_target)
+        return distance_to_target 
+
