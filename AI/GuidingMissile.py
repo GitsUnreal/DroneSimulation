@@ -20,9 +20,6 @@ class GuidingMissile:
         self.oai = oai
         self.grid = grid
 
-        # Precompute neighbors for the OAI grid to optimize pathfinding
-        self.oai.add_neighbors(self.grid)
-
     def shoot_missile(self, start: tuple, goal: tuple, requesting_drone=None) -> bool:
         """
         Launch a missile from a given start to a goal position using obstacle avoidance.
@@ -36,12 +33,16 @@ class GuidingMissile:
             print(f"Drone {self.drone.drone_id}: Cannot fire missile - limit reached or destroyed.")
             return False
 
-        path = self.oai.find_path(self.grid, start, goal, requesting_drone)
+        # Snap to grid to ensure valid coordinates
+        start_grid = self.oai.snap_to_grid(start)
+        goal_grid = self.oai.snap_to_grid(goal)
+
+        path = self.oai.find_path(self.grid, start_grid, goal_grid, requesting_drone)
 
         missile_data = {
             'position': [float(start[0]), float(start[1])],
             'target': goal,
-            'path': path if path else [],
+            'path': path if path else [goal_grid],  # Fallback to direct path
             'path_index': 0,
             'active': True,
             'speed': 3.0,

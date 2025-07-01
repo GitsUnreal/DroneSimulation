@@ -14,19 +14,20 @@ class MainController:
         self.boids = Boids(self.drones)
         self.oai = OAI(self.drones, self.obstacles, CELL_SIZE)
         self.grid = self.oai.make_grid()
-        self.oai.add_neighbors(self.grid)
+        self.oai.add_neighbors(self.grid)  # Only call once here
 
         print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
         print(f"Grid created with {len(self.grid)} cells.")
 
-    @staticmethod
-    def snap_to_grid(pos):
-        x = max(0, min(round(pos[0] / CELL_SIZE) * CELL_SIZE, WIDTH - CELL_SIZE))
-        y = max(0, min(round(pos[1] / CELL_SIZE) * CELL_SIZE, HEIGHT - CELL_SIZE))
-        return (x, y)
-
     def distance_to_target(self, drone):
+        """Calculate distance from drone to target."""
         return np.linalg.norm(np.array([self.target.x(), self.target.y()]) - drone.position)
+
+    def get_path_to_target(self, drone, goal_pos):
+        """Get pathfinding route to a specific goal position."""
+        start = self.oai.snap_to_grid(drone.position)
+        goal = self.oai.snap_to_grid(goal_pos)
+        return self.oai.find_path(self.grid, start, goal, drone)
 
     def update_drones(self):
         for i, drone in enumerate(self.drones):
@@ -37,11 +38,13 @@ class MainController:
             target_vec = np.array([self.target.x(), self.target.y()]) - drone.position
             distance = np.linalg.norm(target_vec)
 
+            # Boids forces
             sep = self.boids.compute_separation(drone) * 2.0
             ali = self.boids.compute_alignment(drone) * 0.1
             coh = self.boids.compute_cohesion(drone) * 0.1
             target_force = (target_vec / distance) * 1.5 if distance > 5 else np.zeros(2)
 
+            # Obstacle avoidance
             avoidance_force = np.zeros(2)
             collision_detected = False
 
@@ -62,11 +65,10 @@ class MainController:
                 if collision_detected:
                     break
 
+            # Pathfinding for obstacles
             if not hasattr(drone, 'current_path') or not drone.current_path:
                 if collision_detected:
-                    start = self.snap_to_grid(drone.position)
-                    goal = self.snap_to_grid((self.target.x(), self.target.y()))
-                    path = self.oai.find_path(self.grid, start, goal, drone)
+                    path = self.get_path_to_target(drone, (self.target.x(), self.target.y()))
                     drone.current_path = path or []
                     drone.current_waypoint_index = 0
                     drone.path_id = f"drone_{i}_path_{len(drone.current_path)}"
@@ -96,16 +98,20 @@ class MainController:
             else:
                 steering = sep * 2 + ali + coh + target_force + avoidance_force
 
+            # Apply movement
             drone.velocity += steering * (0.2 if collision_detected else 0.1)
             drone.velocity = self.boids.limit_speed(drone.velocity)
             drone.position += drone.velocity
             drone.constrain_to_bounds(WIDTH, HEIGHT)
             drone.sync_from_position()
 
+            # Attack logic - FIXED to allow multiple missiles
             if self.distance_to_target(drone) < 100 and not drone.has_attacked:
                 if drone.can_fire_missile():
                     print(f"Drone {drone.drone_id} attacking target.")
                     drone.attack(drone, self.target, self.oai, self.grid)
+                    
+                    # Only mark as attacked when all missiles are used
                     if drone.missiles_fired >= drone.max_missiles:
                         drone.has_attacked = True
                         print(f"Drone {drone.drone_id} has no missiles left and is returning.")
@@ -113,11 +119,12 @@ class MainController:
                     print(f"Drone {drone.drone_id} is out of missiles.")
                     drone.has_attacked = True
 
+            # Return to base logic
             if drone.has_attacked:
-                drone.current_path = []
-                start = self.snap_to_grid(drone.position)
-                base_goal = self.snap_to_grid((self.base.x(), self.base.y()))
-                path = self.oai.find_path(self.grid, start, base_goal, drone)
-                drone.current_path = path or []
-                drone.current_waypoint_index = 0
-                drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
+                if not hasattr(drone, 'returning_to_base'):
+                    drone.returning_to_base = True
+                    path = self.get_path_to_target(drone, (self.base.x(), self.base.y()))
+                    drone.current_path = path or []
+                    drone.current_waypoint_index = 0
+                    drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
+                    print(f"Drone {drone.drone_id} returning to base.")

@@ -3,8 +3,8 @@ import numpy as np
 def update_missiles(drones):
     """Update missile positions and remove inactive or out-of-bounds missiles."""
     for drone in drones:
-        if not hasattr(drone, 'missiles'):
-            continue
+        if not hasattr(drone, 'missiles') or not drone.missiles:
+            continue  # Early exit for performance
 
         active_missiles = []
 
@@ -12,25 +12,10 @@ def update_missiles(drones):
             if not missile['active']:
                 continue
 
-            current_pos = np.array(missile['position'])
-
-            # Determine next target: from path if available, else direct target
-            if missile.get('path') and missile['path_index'] < len(missile['path']):
-                target = np.array(missile['path'][missile['path_index']])
-                reached_target = _move_towards(current_pos, target, missile)
-                if reached_target:
-                    missile['path_index'] += 1
-                    if missile['path_index'] >= len(missile['path']):
-                        print(f"Missile reached target at {missile['target']}")
-                        missile['active'] = False
-                        continue
-            else:
-                target = np.array(missile['target'])
-                reached_target = _move_towards(current_pos, target, missile)
-                if reached_target:
-                    print(f"Missile reached target at {missile['target']}")
-                    missile['active'] = False
-                    continue
+            # Move missile using optimized logic
+            if not _update_missile_position(missile):
+                missile['active'] = False
+                continue
 
             # Check bounds
             x, y = missile['position']
@@ -42,6 +27,27 @@ def update_missiles(drones):
 
         drone.missiles = active_missiles
 
+def _update_missile_position(missile):
+    """Update missile position and return False if target reached."""
+    current_pos = np.array(missile['position'])
+
+    # Determine next target: from path if available, else direct target
+    if missile.get('path') and missile['path_index'] < len(missile['path']):
+        target = np.array(missile['path'][missile['path_index']])
+        reached_target = _move_towards(current_pos, target, missile)
+        if reached_target:
+            missile['path_index'] += 1
+            if missile['path_index'] >= len(missile['path']):
+                print(f"Missile reached target at {missile['target']}")
+                return False
+    else:
+        target = np.array(missile['target'])
+        reached_target = _move_towards(current_pos, target, missile)
+        if reached_target:
+            print(f"Missile reached target at {missile['target']}")
+            return False
+    
+    return True
 
 def _move_towards(current_pos, target_pos, missile, threshold=5):
     """Move missile toward target and return True if target is reached."""
