@@ -65,7 +65,7 @@ class target:
         
         self.current_waypoint_index = 0
         self.path_complete = False
-        print(f"Target {self.target_id} waypoints: {self.waypoints}")
+        #print(f"Target {self.target_id} waypoints: {self.waypoints}")
 
     def set_random_movement(self, direction_change_interval=3.0, speed=2.0):
         """Set target to move in random directions"""
@@ -133,7 +133,7 @@ class target:
             self.current_waypoint_index += 1
             if self.current_waypoint_index >= len(self.waypoints):
                 self.path_complete = True
-                print(f"Target {self.target_id} completed waypoint path")
+                #print(f"Target {self.target_id} completed waypoint path")
                 # Optionally loop back to start
                 # self.current_waypoint_index = 0
         else:
@@ -174,7 +174,7 @@ class target:
 
     def destroy(self):
         self.destroyed = True
-        print(f"Target {self.target_id} at {self.position} has been destroyed.")
+        #print(f"Target {self.target_id} at {self.position} has been destroyed.")
     
     def is_destroyed(self):
         return self.destroyed

@@ -10,7 +10,7 @@ class Obstacle:
         """Check if the obstacle is within the radar's detection range."""
         # Mark as detected/visible
         self.is_hidden = False
-        print(f"Obstacle at ({self.x()}, {self.y()}) detected by radar!")
+        #print(f"Obstacle at ({self.x()}, {self.y()}) detected by radar!")
     
     # Add convenience methods to match QRect interface
     def x(self):

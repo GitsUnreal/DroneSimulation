@@ -49,7 +49,7 @@ class SimulationManager:
             start_x = 50 + i * 40
             start_y = 50 + i * 30
             DroneUtils.reset_drone_to_position(drone, (start_x, start_y))
-            print(f"Reset drone {i} to position ({start_x}, {start_y})")
+            #print(f"Reset drone {i} to position ({start_x}, {start_y})")
 
         # Reset target
         if self.target:
@@ -57,7 +57,7 @@ class SimulationManager:
 
         # Create new target using factory
         self.target = TargetFactory.create_random_target(self.obstacles)
-        print(f"New target at ({self.target.position[0]}, {self.target.position[1]})")
+        #print(f"New target at ({self.target.position[0]}, {self.target.position[1]})")
         self.movement_controller = MainController(self.drones, self.obstacles, self.target, self.base)
 
     def get_active_drones(self):
@@ -86,7 +86,7 @@ class SimulationManager:
             # Obstacle collisions
             for obs in self.obstacles:
                 if obs.contains(int(drone.position[0]), int(drone.position[1])):
-                    print(f"Drone {drone.drone_id} destroyed by obstacle at ({drone.position[0]:.1f}, {drone.position[1]:.1f})")
+                    #print(f"Drone {drone.drone_id} destroyed by obstacle at ({drone.position[0]:.1f}, {drone.position[1]:.1f})")
                     drone.destroy()
                     break
 

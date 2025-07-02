@@ -17,7 +17,14 @@ class ReconnaissanceModeHandler(ModeHandler):
             drone.missile_config = MissileConfigPresets.STANDARD.value
 
     def configure_target(self, target):
-        target.hidden = False
+        # Handle both single target and multiple targets
+        if hasattr(target, '__iter__') and not isinstance(target, str):
+            # Multiple targets
+            for t in target:
+                t.hidden = True
+        else:
+            # Single target
+            target.hidden = True
     
     def get_movement_parameters(self):
         return DroneMovementMode.STEALTH.value.__dict__
@@ -26,4 +33,4 @@ class ReconnaissanceModeHandler(ModeHandler):
         return MissileConfigPresets.STANDARD.value.__dict__
     
     def should_show_target(self):
-        return True
+        return False

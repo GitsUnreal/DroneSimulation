@@ -34,8 +34,8 @@ class MainController:
         if self.sim_modes:
             self.sim_modes.apply_mode_to_simulation(drones, target)
 
-        print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
-        print(f"Grid created with {len(self.grid)} cells.")
+        #print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
+        #print(f"Grid created with {len(self.grid)} cells.")
 
     def distance_to_target(self, drone):
         """Calculate distance from drone to target."""
@@ -77,7 +77,7 @@ class MainController:
         for missile in self.missile_manager.get_active_missiles():
             if hasattr(missile, 'hit_target') and missile.hit_target and missile.state.value == "exploding":
                 if not self.target.is_destroyed():
-                    print(f"🎯 TARGET HIT by missile {missile.missile_id}!")
+                    #print(f"🎯 TARGET HIT by missile {missile.missile_id}!")
                     self.target.destroy()
                     target_hit_this_frame = True
         
@@ -175,7 +175,7 @@ class MainController:
                             if drone.current_waypoint_index >= len(drone.current_path):
                                 drone.current_path = []
                                 drone.current_waypoint_index = 0
-                                print(f"Drone {drone.drone_id} completed return path.")
+                                #print(f"Drone {drone.drone_id} completed return path.")
                         
                         if drone.current_waypoint_index < len(drone.current_path):
                             force = (to_waypoint / (dist + 1e-6)) * 3.0
@@ -201,7 +201,7 @@ class MainController:
                     if drone.current_waypoint_index >= len(drone.current_path):
                         drone.current_path = []
                         drone.current_waypoint_index = 0
-                        print(f"Drone {drone.drone_id} completed path.")
+                        #print(f"Drone {drone.drone_id} completed path.")
                 if drone.current_waypoint_index < len(drone.current_path):
                     force = (to_waypoint / (dist + 1e-6)) * 2.0
                     steering = sep * 3 + force * 2 + avoidance_force * 1.5
@@ -223,7 +223,7 @@ class MainController:
                     # Use predicted position for moving targets
                     if self.target.is_moving_target:
                         target_pos = self.target.get_predicted_position(1.0)  # Predict 1 second ahead
-                        print(f"Drone {drone.drone_id} targeting predicted position {target_pos}")
+                        #print(f"Drone {drone.drone_id} targeting predicted position {target_pos}")
                     else:
                         target_pos = (self.target.x(), self.target.y())
                     
@@ -235,7 +235,7 @@ class MainController:
                     
                     if success and drone.missiles_fired >= drone.max_missiles:
                         drone.has_attacked = True
-                        print(f"Drone {drone.drone_id} has no missiles left and is returning.")
+                        #print(f"Drone {drone.drone_id} has no missiles left and is returning.")
                 else:
                     drone.has_attacked = True
 
@@ -247,7 +247,7 @@ class MainController:
                     drone.current_path = path or []
                     drone.current_waypoint_index = 0
                     drone.path_id = f"drone_{i}_base_path_{len(drone.current_path)}"
-                    print(f"Drone {drone.drone_id} returning to base with {len(drone.current_path)} waypoints.")
+                    #print(f"Drone {drone.drone_id} returning to base with {len(drone.current_path)} waypoints.")
                 
                 # Check if drone has reached base - INCREASED RADIUS
                 base_distance = self.distance_to_base(drone)
@@ -277,6 +277,6 @@ class MainController:
                     if hasattr(drone, 'missiles'):
                         drone.missiles.clear()
                     
-                    print(f"Drone {drone.drone_id} has landed at base (distance: {base_distance:.1f}) and is now hidden.")
+                    #print(f"Drone {drone.drone_id} has landed at base (distance: {base_distance:.1f}) and is now hidden.")
         
         return {'target_destroyed': False}

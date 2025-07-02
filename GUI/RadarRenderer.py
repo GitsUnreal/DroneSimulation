@@ -11,7 +11,7 @@ class RadarRenderer:
         self.sweep_width = 30  # degrees
         self.detected_obstacles = []
         
-    def update_radar(self, obstacles, drones):
+    def update_radar(self, obstacles, target, drones):
         """Update radar sweep and detect obstacles from ALL active drones"""
         if not self.radar_enabled:
             return []
@@ -46,12 +46,78 @@ class RadarRenderer:
                     
                     # Check if obstacle is within sweep angle for this drone
                     if self.is_in_sweep(angle_to_obs):
-                        if not detected_by_any_drone:  # Only print once per obstacle
+                        if not detected_by_any_drone:  # Only #print once per obstacle
                             visible_obstacles.append(obs_pos)
                             obs.is_spotted(obs_pos, self.radar_radius)
-                            print(f"Radar detected obstacle at ({obs.x()}, {obs.y()}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                            #print(f"Radar detected obstacle at ({obs.x()}, {obs.y()}) by drone {drone.drone_id} - distance: {distance:.1f}")
                         detected_by_any_drone = True
                         break  # Stop checking other drones for this obstacle
+        
+        # Handle both single target and multiple targets
+        targets_to_check = []
+        
+        if target is not None:
+            # Check if target is iterable (list/tuple) or single object
+            try:
+                # Try to iterate - if it works, it's a collection
+                iter(target)
+                # If target is a string, treat it as single object (strings are iterable but we don't want to iterate chars)
+                if isinstance(target, str):
+                    targets_to_check = [target]
+                else:
+                    targets_to_check = list(target)
+            except TypeError:
+                # Not iterable, single target
+                targets_to_check = [target]
+        
+        # Process all targets (whether single or multiple)
+        for enemy in targets_to_check:
+            # Skip if target doesn't exist or no position data
+            if not enemy:
+                continue
+                
+            # Handle different position formats
+            if hasattr(enemy, 'position') and hasattr(enemy, 'width') and hasattr(enemy, 'height'):
+                # Target with position array and width/height
+                enemy_pos = np.array([enemy.position[0] + enemy.width/2, enemy.position[1] + enemy.height/2])
+            elif hasattr(enemy, 'x') and hasattr(enemy, 'y') and hasattr(enemy, 'width') and hasattr(enemy, 'height'):
+                # Target with x(),y() methods
+                enemy_pos = np.array([enemy.x() + enemy.width()/2, enemy.y() + enemy.height()/2])
+            else:
+                # Skip if we can't determine position
+                continue
+
+            detected_by_any_drone = False
+
+            for drone in active_drones:
+                radar_center = drone.position
+
+                # Calculate distance from this drone's radar center
+                distance = np.linalg.norm(enemy_pos - radar_center)
+
+                if distance <= self.radar_radius:
+                    # Calculate angle to enemy from this drone
+                    angle_to_enemy = self.get_angle_to_position(radar_center, enemy_pos)
+
+                    # Check if enemy is within sweep angle for this drone
+                    if self.is_in_sweep(angle_to_enemy):
+                        if not detected_by_any_drone:
+                            visible_obstacles.append(enemy_pos)
+                            
+                            # MARK TARGET AS SPOTTED BY RADAR
+                            enemy.spotted_by_radar = True
+                            
+                            if hasattr(enemy, 'is_spotted'):
+                                enemy.is_spotted(enemy_pos, self.radar_radius)
+                            
+                            # Handle different position access methods for logging
+                            if hasattr(enemy, 'position'):
+                                print(f"🎯 RADAR SPOTTED TARGET at ({enemy.position[0]:.1f}, {enemy.position[1]:.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                            else:
+                                print(f"🎯 RADAR SPOTTED TARGET at ({enemy.x():.1f}, {enemy.y():.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                        detected_by_any_drone = True
+                        break  # Stop checking other drones for this enemy
+
         
         # Advance radar sweep
         self.radar_angle = (self.radar_angle + 2) % 360

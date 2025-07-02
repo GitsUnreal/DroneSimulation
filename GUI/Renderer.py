@@ -1,5 +1,6 @@
 from PyQt5.QtGui import QPainter, QColor, QFont, QPen
 from PyQt5.QtCore import QRect
+import numpy as np
 
 class Renderer:
     def __init__(self):
@@ -144,7 +145,7 @@ class Renderer:
 
     def draw_static_elements(self, painter, offset_y, obstacles, target, base):
         """Draw obstacles, target, and base"""
-        # Obstacles - FIX: Remove duplicate loop and fix logic
+        # Draw obstacles first
         painter.setBrush(QColor(200, 50, 50))
         painter.setPen(QPen(QColor(0, 0, 0), 1))
         
@@ -156,72 +157,125 @@ class Renderer:
                     adjusted = QRect(obs.x(), obs.y() + offset_y, obs.width(), obs.height())
                 painter.drawRect(adjusted)
 
-        # Enhanced target rendering
-        if target.is_destroyed():
-            # Draw destroyed target with different visual
-            painter.setBrush(QColor(100, 100, 100))  # Gray for destroyed
-            painter.setPen(QPen(QColor(255, 0, 0), 3))  # Red border
-            # FIX: Convert numpy.float64 to int
-            target_adj = QRect(int(target.position[0]), int(target.position[1]) + offset_y, target.width, target.height)
-            painter.drawRect(target_adj)
+        # Helper function to check if a target should be drawn
+        def should_draw_target(t):
+            """Check if target should be visible based on mode and spotted status"""
+            print(f"DEBUG: Checking should_draw_target for: {t}")
             
-            # Draw X over destroyed target
-            painter.setPen(QPen(QColor(255, 0, 0), 4))
-            painter.drawLine(
-                int(target.position[0]), int(target.position[1]) + offset_y,
-                int(target.position[0]) + target.width, int(target.position[1]) + target.height + offset_y
-            )
-            painter.drawLine(
-                int(target.position[0]) + target.width, int(target.position[1]) + offset_y,
-                int(target.position[0]), int(target.position[1]) + target.height + offset_y
-            )
+            # CHECK IF TARGET WAS SPOTTED BY RADAR (highest priority)
+            if hasattr(t, 'spotted_by_radar') and t.spotted_by_radar:
+                print("DEBUG: Target spotted by radar - showing despite being hidden")
+                return True
             
-            # Add "DESTROYED" text
-            painter.setPen(QPen(QColor(255, 255, 255), 2))
-            painter.setFont(QFont("Arial", 8, QFont.Bold))
-            painter.drawText(
-                int(target.position[0]) - 10, int(target.position[1]) + offset_y - 5, 
-                "DESTROYED"
-            )
-        else:
-            # Different colors for different movement types
-            if target.is_moving_target:
-                if target.movement_pattern == "linear":
-                    painter.setBrush(QColor(255, 165, 0))  # Orange
-                elif target.movement_pattern == "circular":
-                    painter.setBrush(QColor(0, 255, 255))  # Cyan
-                elif target.movement_pattern == "waypoint":
-                    painter.setBrush(QColor(255, 0, 255))  # Magenta
-                elif target.movement_pattern == "random":
-                    painter.setBrush(QColor(255, 255, 0))  # Yellow
-                
-                # Draw movement indicator
-                painter.setPen(QPen(QColor(255, 255, 255), 2))
-                if hasattr(target, 'velocity'):
-                    vel_scale = 20
-                    end_x = target.x() + target.velocity[0] * vel_scale
-                    end_y = target.y() + target.velocity[1] * vel_scale
-                    painter.drawLine(target.x(), target.y() + offset_y, int(end_x), int(end_y) + offset_y)
+            # Check mode handler preference
+            if hasattr(self, 'sim_modes') and self.sim_modes:
+                mode_allows = self.sim_modes.get_current_handler().should_show_target()
+                print(f"DEBUG: Mode allows target: {mode_allows}")
+                print(f"DEBUG: Current mode: {self.sim_modes.get_current_handler().name}")
+                if mode_allows:
+                    print("DEBUG: Mode says show target")
+                    return True
             else:
-                painter.setBrush(QColor(50, 200, 50))  # Green for static
+                print("DEBUG: No sim_modes available")
             
-            painter.setPen(QPen(QColor(0, 0, 0), 1))
-            # FIX: Convert numpy.float64 to int
-            target_adj = QRect(int(target.position[0]), int(target.position[1]) + offset_y, target.width, target.height)
+            # Check if target is specifically hidden (and not spotted)
+            hidden_status = getattr(t, 'hidden', False)
+            spotted_status = getattr(t, 'spotted_by_radar', False)
+            print(f"DEBUG: Target hidden: {hidden_status}, spotted: {spotted_status}")
+            
+            if hidden_status and not spotted_status:
+                print("DEBUG: Target is hidden and not spotted")
+                return False
+            
+            print("DEBUG: Target should be drawn")
+            return True  # Default to showing target
+
+        # Handle both single target and list of targets
+        targets_to_draw = []
+        if target is not None:
+            try:
+                # Check if iterable (multiple targets)
+                iter(target)
+                if isinstance(target, str):
+                    targets_to_draw = [target]
+                else:
+                    targets_to_draw = list(target)
+                print(f"DEBUG: Target is iterable, targets_to_draw: {len(targets_to_draw)}")
+            except TypeError:
+                # Single target
+                targets_to_draw = [target]
+                print(f"DEBUG: Target is single, targets_to_draw: {len(targets_to_draw)}")
+        else:
+            print("DEBUG: Target is None")
+
+        # Draw all valid targets
+        for i, single_target in enumerate(targets_to_draw):
+            print(f"DEBUG: Processing target {i}: {single_target}")
+            
+            if not should_draw_target(single_target):
+                print(f"DEBUG: Skipping target {i} - should not draw")
+                continue  # Skip hidden targets
+            
+            print(f"DEBUG: Drawing target {i}")
+            
+            # Draw the target with different colors based on status
+            if getattr(single_target, 'spotted_by_radar', False):
+                # Spotted target - use bright yellow/orange
+                painter.setBrush(QColor(255, 215, 0))  # Gold for spotted target
+                painter.setPen(QPen(QColor(255, 0, 0), 3))  # Red border for spotted
+                
+                # Add pulsing effect for newly spotted targets
+                if not hasattr(single_target, 'spot_time'):
+                    single_target.spot_time = 0
+                single_target.spot_time += 1
+                
+                # Pulsing border for first few seconds after spotting
+                if single_target.spot_time < 100:  # Pulse for ~5 seconds at 20fps
+                    border_width = 3 + int(2 * abs(np.sin(single_target.spot_time * 0.3)))
+                    painter.setPen(QPen(QColor(255, 0, 0), border_width))
+            else:
+                # Normal target (should rarely be seen in search and destroy)
+                painter.setBrush(QColor(50, 200, 50))  # Green for normal target
+                painter.setPen(QPen(QColor(0, 0, 0), 2))
+            
+            # Handle different position formats
+            if hasattr(single_target, 'position') and hasattr(single_target, 'width') and hasattr(single_target, 'height'):
+                print(f"DEBUG: Using position format: pos={single_target.position}, w={single_target.width}, h={single_target.height}")
+                target_adj = QRect(
+                    int(single_target.position[0]), 
+                    int(single_target.position[1]) + offset_y, 
+                    single_target.width, 
+                    single_target.height
+                )
+            elif hasattr(single_target, 'x') and hasattr(single_target, 'y'):
+                print(f"DEBUG: Using x/y format: x={single_target.x()}, y={single_target.y()}")
+                target_adj = QRect(
+                    single_target.x(), 
+                    single_target.y() + offset_y, 
+                    getattr(single_target, 'width', 30), 
+                    getattr(single_target, 'height', 30)
+                )
+            else:
+                print("DEBUG: Cannot determine target position format - skipping")
+                continue  # Skip if we can't determine position
+            
+            print(f"DEBUG: Drawing target rect: {target_adj}")
             painter.drawRect(target_adj)
             
-            # Draw waypoints for waypoint targets
-            if hasattr(target, 'waypoints') and target.waypoints:
-                painter.setPen(QPen(QColor(255, 255, 255), 1))
-                for i, waypoint in enumerate(target.waypoints):
-                    painter.drawEllipse(int(waypoint[0])-3, int(waypoint[1])+offset_y-3, 6, 6)
-                    if i == target.current_waypoint_index:
-                        painter.setPen(QPen(QColor(255, 0, 0), 2))
-                        painter.drawEllipse(int(waypoint[0])-5, int(waypoint[1])+offset_y-5, 10, 10)
-                        painter.setPen(QPen(QColor(255, 255, 255), 1))
+            # Add different labels based on status
+            painter.setPen(QPen(QColor(255, 255, 255), 2))
+            painter.setFont(QFont("Arial", 12, QFont.Bold))
+            
+            if getattr(single_target, 'spotted_by_radar', False):
+                painter.drawText(target_adj.center().x() - 8, target_adj.center().y() + 5, "🎯")  # Target emoji for spotted
+            else:
+                painter.drawText(target_adj.center().x() - 5, target_adj.center().y() + 5, "T")   # Regular T for unspotted
+            
+            print(f"DEBUG: Successfully drew target {i}")
 
-        # Base
+        # Draw base (always visible)
         painter.setBrush(QColor(0, 0, 0))
+        painter.setPen(QPen(QColor(255, 255, 255), 1))
         base_adj = QRect(base.x(), base.y() + offset_y, base.width(), base.height())
         painter.drawRect(base_adj)
 

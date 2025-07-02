@@ -19,7 +19,14 @@ class NormalModeHandler(ModeHandler):
         }
 
     def configure_target(self, target):
-        target.hidden = False
+        # Handle both single target and multiple targets
+        if hasattr(target, '__iter__') and not isinstance(target, str):
+            # Multiple targets
+            for t in target:
+                t.hidden = False
+        else:
+            # Single target
+            target.hidden = False
     
     def get_movement_parameters(self):
         return {

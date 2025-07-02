@@ -41,6 +41,9 @@ class MainWindow(QWidget):
         self.radar_renderer = RadarRenderer()
         self.sim_modes = SimModes()
         self.sim_modes.set_mode(Modes.NORMAL)
+        
+        # Pass sim_modes to renderer
+        self.renderer.sim_modes = self.sim_modes
 
         # Add new monitoring components
         self.performance_panel = PerformancePanel(self)
@@ -190,10 +193,14 @@ class MainWindow(QWidget):
             )
             
             self.drones.append(drone)
-            print(f"Spawned drone {i} at safe position {valid_position}")
+            #print(f"Spawned drone {i} at safe position {valid_position}")
 
         # Create target with valid position using factory
         self.target = TargetFactory.create_random_target(self.obstacles)
+        
+        # Initialize target status for search and destroy
+        self.target.hidden = True
+        self.target.spotted_by_radar = False
         
         self.base = QRect(50, 50, 20, 20)
         
@@ -208,6 +215,9 @@ class MainWindow(QWidget):
         self.sim_manager.movement_controller = self.movement_controller
         
         self._create_missile_status_labels()
+
+        # Apply current mode to target
+        self.sim_modes.apply_mode_to_simulation(self.drones, self.target)
 
     def _create_missile_status_labels(self):
         """Create missile status labels for UI"""
@@ -242,7 +252,7 @@ class MainWindow(QWidget):
                         break
             
             DroneUtils.reset_drone_to_position(drone, valid_position)
-            print(f"Reset drone {i} to safe position {valid_position}")
+            #print(f"Reset drone {i} to safe position {valid_position}")
 
         # Reset target
         if self.target:
@@ -274,7 +284,8 @@ class MainWindow(QWidget):
         
         # UPDATE RADAR AND DETECT OBSTACLES - This is the key line!
         detected_obstacles = self.radar_renderer.update_radar(
-            self.sim_manager.obstacles, 
+            self.sim_manager.obstacles,
+            self.sim_manager.target, 
             self.sim_manager.drones
         )
         
@@ -313,7 +324,7 @@ class MainWindow(QWidget):
 
     def handle_target_destroyed(self):
         """Handle target destruction event"""
-        print("🎯 TARGET DESTROYED! Mission objective complete!")
+        #print("🎯 TARGET DESTROYED! Mission objective complete!")
         
         # Show target destroyed alert
         self.alert_system.show_alert(
@@ -327,7 +338,7 @@ class MainWindow(QWidget):
             if drone.alive and not (hasattr(drone, 'has_landed') and drone.has_landed):
                 if not hasattr(drone, 'returning_to_base'):
                     drone.has_attacked = True  # Force return to base behavior
-                    print(f"Drone {drone.drone_id} ordered to return to base after target destruction")
+                    #print(f"Drone {drone.drone_id} ordered to return to base after target destruction")
         
         # Optionally pause simulation after a delay
         QTimer.singleShot(2000, self.pause_after_target_destroyed)
@@ -337,7 +348,7 @@ class MainWindow(QWidget):
         # Uncomment if you want to auto-pause after target destruction
         # if self.simulation_running:
         #     self.toggle_simulation()
-        #     print("Simulation paused after target destruction")
+        #     #print("Simulation paused after target destruction")
         pass
 
     def check_for_alerts(self):
@@ -424,21 +435,21 @@ class MainWindow(QWidget):
         button_color = "lightgreen" if radar_enabled else "lightsteelblue"
         self.radar_button.setStyleSheet(f"background-color: {button_color}; font-size: 10px; border-radius: 3px;")
         self.update()
-        print(f"Radar: {'ON' if radar_enabled else 'OFF'}")
+        #print(f"Radar: {'ON' if radar_enabled else 'OFF'}")
 
     def toggle_grid(self):
         self.show_grid = not self.show_grid
         button_color = "lightgreen" if self.show_grid else "lightblue"
         self.grid_button.setStyleSheet(f"background-color: {button_color}; font-size: 10px; border-radius: 3px;")
         self.update()
-        print(f"Grid overlay: {'ON' if self.show_grid else 'OFF'}")
+        #print(f"Grid overlay: {'ON' if self.show_grid else 'OFF'}")
 
     def toggle_paths(self):
         self.show_paths = not self.show_paths
         button_color = "lightgreen" if self.show_paths else "lightyellow"
         self.path_button.setStyleSheet(f"background-color: {button_color}; font-size: 10px; border-radius: 3px;")
         self.update()
-        print(f"Path visualization: {'ON' if self.show_paths else 'OFF'}")
+        #print(f"Path visualization: {'ON' if self.show_paths else 'OFF'}")
 
     def toggle_debug(self):
         self.show_debug = not self.show_debug
@@ -450,7 +461,7 @@ class MainWindow(QWidget):
         else:
             self.debug_panel.hide_panel()
         
-        print(f"Debug panel: {'ON' if self.show_debug else 'OFF'}")
+        #print(f"Debug panel: {'ON' if self.show_debug else 'OFF'}")
 
     def toggle_statistics(self):
         """Toggle statistics panel"""
@@ -471,7 +482,7 @@ class MainWindow(QWidget):
             self.perf_button.setStyleSheet("background-color: lightgreen; font-size: 10px; border-radius: 3px;")
 
     def closeEvent(self, event):
-        print("Main window closed.")
+        #print("Main window closed.")
         event.accept()
 
     def change_mode(self, mode_text):
@@ -486,5 +497,5 @@ class MainWindow(QWidget):
                 # Update controller with new mode
                 self.movement_controller.sim_modes = self.sim_modes
                 
-                print(f"Mode changed from {old_handler.name} to {new_handler.name}")
+                #print(f"Mode changed from {old_handler.name} to {new_handler.name}")
                 break

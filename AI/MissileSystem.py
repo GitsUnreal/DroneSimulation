@@ -38,7 +38,7 @@ class MissileConfigPresets(Enum):
         missile_type=MissileType.EXPLOSIVE
     )
     HOMING = MissileConfig(
-        speed=25.0, damage=80, homing_range=150.0, maneuverability=1.5,
+        speed=100.0, damage=80, homing_range=150.0, maneuverability=1.5,
         missile_type=MissileType.HOMING
     )
     PIERCING = MissileConfig(
@@ -134,7 +134,7 @@ class Missile:
             distance = np.linalg.norm(direction)
             
             if distance < 15:  # Increased hit radius for better detection
-                print(f"Missile {self.missile_id} hit target at distance {distance:.1f}")
+                #print(f"Missile {self.missile_id} hit target at distance {distance:.1f}")
                 self.explode()
                 return
             elif distance < self.config.homing_range and self.missile_type == MissileType.HOMING:
@@ -238,7 +238,7 @@ class Missile:
         if self.on_target_hit and hasattr(self, 'hit_target') and self.hit_target:
             self.on_target_hit(self)
         
-        print(f"Missile {self.missile_id} exploded at {self.position}")
+        #print(f"Missile {self.missile_id} exploded at {self.position}")
 
     def get_explosion_effect(self) -> dict:
         """Get explosion effect data for rendering"""
@@ -258,7 +258,7 @@ class Missile:
         distance_to_target = np.linalg.norm(self.target_position - self.position)
         
         if distance_to_target < 20:  # Hit radius
-            print(f"🎯 Missile {self.missile_id} HIT TARGET! Distance: {distance_to_target:.1f}")
+            #print(f"🎯 Missile {self.missile_id} HIT TARGET! Distance: {distance_to_target:.1f}")
             self.hit_target = True  # Mark that we hit the target
             self.explode()
             return True

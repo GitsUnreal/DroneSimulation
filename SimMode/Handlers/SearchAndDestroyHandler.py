@@ -17,7 +17,16 @@ class SearchAndDestroyModeHandler(ModeHandler):
             drone.missile_config = MissileConfigPresets.HOMING.value
 
     def configure_target(self, target):
-        target.hidden = True
+        # Handle both single target and multiple targets - KEEP HIDDEN UNTIL SPOTTED
+        if hasattr(target, '__iter__') and not isinstance(target, str):
+            # Multiple targets
+            for t in target:
+                t.hidden = True
+                t.spotted_by_radar = False  # Add spotted flag
+        else:
+            # Single target
+            target.hidden = True
+            target.spotted_by_radar = False  # Add spotted flag
     
     def get_movement_parameters(self):
         return DroneMovementMode.FAST_ASSAULT.value.__dict__
@@ -26,4 +35,4 @@ class SearchAndDestroyModeHandler(ModeHandler):
         return MissileConfigPresets.HOMING.value.__dict__
     
     def should_show_target(self):
-        return False
+        return False  # Never show target unless spotted by radar

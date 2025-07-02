@@ -18,7 +18,7 @@ class StatusChecker:
             else:
                 destroyed_count += 1
         
-        print(f"Drone Status: {alive_count} Active, {landed_count} Landed, {destroyed_count} Destroyed")
+        #print(f"Drone Status: {alive_count} Active, {landed_count} Landed, {destroyed_count} Destroyed")
         return alive_count, landed_count, destroyed_count
 
     def check_mission_progress(self, drones):
@@ -27,12 +27,12 @@ class StatusChecker:
         total_missiles_available = sum(drone.max_missiles for drone in drones)
         drones_attacked = sum(1 for drone in drones if drone.has_attacked)
         
-        print(f"Mission Progress: {total_missiles_fired}/{total_missiles_available} missiles fired, {drones_attacked}/{len(drones)} drones attacked")
+        #print(f"Mission Progress: {total_missiles_fired}/{total_missiles_available} missiles fired, {drones_attacked}/{len(drones)} drones attacked")
         
         mission_complete = all(drone.has_attacked and drone.has_landed or not drone.alive for drone in drones)
         
         if mission_complete:
-            print("🎯 MISSION COMPLETE! All drones have completed their attacks.")
+            #print("🎯 MISSION COMPLETE! All drones have completed their attacks.")
             return True
         return False
 
@@ -71,7 +71,7 @@ class StatusChecker:
         if stuck_drones > 0:
             print(f"⚠️ WARNING: {stuck_drones} drone(s) appear stuck!")
         
-        print(f"System Status: {pathfinding_active} drones pathfinding, {stuck_drones} stuck")
+        #print(f"System Status: {pathfinding_active} drones pathfinding, {stuck_drones} stuck")
         return collisions_detected, pathfinding_active, stuck_drones
 
     def run_periodic_checks(self, drones, obstacles, toggle_simulation_callback):

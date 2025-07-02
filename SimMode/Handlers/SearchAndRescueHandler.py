@@ -19,7 +19,14 @@ class SearchAndRescueRunModeHandler(ModeHandler):
         }
 
     def configure_target(self, target):
-        target.hidden = False
+        # Handle both single target and multiple targets
+        if hasattr(target, '__iter__') and not isinstance(target, str):
+            # Multiple targets
+            for t in target:
+                t.hidden = True
+        else:
+            # Single target
+            target.hidden = True
     
     def get_movement_parameters(self):
         return {

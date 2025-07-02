@@ -89,7 +89,7 @@ class Drone:
     def attack(self, drone, target, oai, grid):
         """Attack the target with a missile."""
         if not self.can_fire_missile():
-            print(f"Drone {self.drone_id}: Cannot fire missile ({self.missiles_fired}/{self.max_missiles})")
+            #print(f"Drone {self.drone_id}: Cannot fire missile ({self.missiles_fired}/{self.max_missiles})")
             return
 
         start = tuple(self.position)
@@ -99,12 +99,12 @@ class Drone:
         guiding_missile = MissileType.HOMING(drone, target, oai, grid)
         if guiding_missile.shoot_missile(start, target_pos):
             self.missiles_fired += 1
-            print(f"Drone {self.drone_id}: Fired missile ({self.missiles_fired}/{self.max_missiles})")
+            #print(f"Drone {self.drone_id}: Fired missile ({self.missiles_fired}/{self.max_missiles})")
 
     def attack_with_missile_system(self, target, missile_manager, missile_type=MissileType.STANDARD):
         """Enhanced attack method using new missile system"""
         if not self.can_fire_missile():
-            print(f"Drone {self.drone_id}: Cannot fire missile ({self.missiles_fired}/{self.max_missiles})")
+            #print(f"Drone {self.drone_id}: Cannot fire missile ({self.missiles_fired}/{self.max_missiles})")
             return False
 
         target_pos = (target.position[0], target.position[1])
@@ -137,12 +137,12 @@ class Drone:
         """Land drone at base (removes from active simulation)"""
         self.has_landed = True
         # Don't set alive = False, keep drone alive but landed
-        print(f"Drone {self.drone_id} has successfully landed at base")
+        #print(f"Drone {self.drone_id} has successfully landed at base")
 
     def reactivate_from_base(self, new_target_pos=None):
         """Reactivate a landed drone for a new mission"""
         if not hasattr(self, 'has_landed') or not self.has_landed:
-            print(f"Drone {self.drone_id} is not landed, cannot reactivate")
+            #print(f"Drone {self.drone_id} is not landed, cannot reactivate")
             return False
         
         # Reset drone state for new mission
@@ -167,7 +167,7 @@ class Drone:
             self.position = np.array(new_target_pos, dtype=float)
             self.sync_from_position()
         
-        print(f"Drone {self.drone_id} reactivated for new mission")
+        #print(f"Drone {self.drone_id} reactivated for new mission")
         return True
 
 def get_landed_drones_at_base(drones):

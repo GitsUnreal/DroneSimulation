@@ -49,7 +49,7 @@ class MissileManager:
         self.missiles.append(missile)
         drone.missiles_fired += 1
         
-        print(f"Fired {missile_type.value} missile {missile_id} from drone {drone.drone_id} to {target_pos}")
+        #print(f"Fired {missile_type.value} missile {missile_id} from drone {drone.drone_id} to {target_pos}")
         return True
 
     def reload_missiles(self, drone):

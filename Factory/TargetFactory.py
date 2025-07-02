@@ -30,7 +30,7 @@ class TargetFactory:
             new_target = target(target_id=target_id, position=valid_position, height=20, width=20, is_moving_target=True)
             new_target.set_random_movement(direction_change_interval=2.0, speed=2.5)
         
-        print(f"Created {target_type} target at safe position {valid_position}")
+        #print(f"Created {target_type} target at safe position {valid_position}")
         return new_target
 
     @staticmethod
@@ -47,4 +47,4 @@ class TargetFactory:
         target_obj.current_waypoint_index = 0
         target_obj.path_complete = False
         
-        print(f"Target {target_obj.target_id} valid waypoints: {valid_waypoints}")
+        #print(f"Target {target_obj.target_id} valid waypoints: {valid_waypoints}")

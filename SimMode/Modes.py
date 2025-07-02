@@ -43,7 +43,7 @@ class SimModes:
             old_handler = self.current_handler
             self.current_mode = mode
             self.current_handler = self.mode_handlers[mode]
-            print(f"Simulation mode set to: {self.current_mode.value}")
+            #print(f"Simulation mode set to: {self.current_mode.value}")
             return old_handler, self.current_handler
         else:
             raise ValueError("Invalid simulation mode")

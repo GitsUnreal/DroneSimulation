@@ -38,13 +38,13 @@ def _update_missile_position(missile):
         if reached_target:
             missile['path_index'] += 1
             if missile['path_index'] >= len(missile['path']):
-                print(f"Missile reached target at {missile['target']}")
+                #print(f"Missile reached target at {missile['target']}")
                 return False
     else:
         target = np.array(missile['target'])
         reached_target = _move_towards(current_pos, target, missile)
         if reached_target:
-            print(f"Missile reached target at {missile['target']}")
+            #print(f"Missile reached target at {missile['target']}")
             return False
     
     return True
