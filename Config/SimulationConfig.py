@@ -8,11 +8,11 @@ class SimulationConfig:
     
     # Simulation settings
     TIMER_INTERVAL = 50  # 50ms = 20 FPS
-    CELL_SIZE = 20
+    CELL_SIZE = 10
     
     # Drone settings
-    DEFAULT_DRONES = 20
-    DRONE_SIZE = 2
+    DEFAULT_DRONES = 2
+    DRONE_SIZE = 20
     SPAWN_RADIUS = 20
     SPAWN_MARGIN = 30
     

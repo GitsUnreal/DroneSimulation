@@ -81,9 +81,9 @@ class MainWindow(QWidget):
         main_layout = QVBoxLayout()
         self.setLayout(main_layout)
 
-        # Create control bar
+        # Create control bar - Updated to handle 4 return values
         callbacks = self._get_ui_callbacks()
-        control_bar, self.buttons, self.mode_combo = UIComponentManager.create_control_bar(callbacks)
+        control_bar, self.buttons, self.mode_combo, self.speed_combo = UIComponentManager.create_control_bar(callbacks)
         main_layout.addLayout(control_bar)
         main_layout.addStretch()
 
@@ -110,7 +110,8 @@ class MainWindow(QWidget):
             'toggle_statistics': self.toggle_statistics,
             'toggle_performance': self.toggle_performance,
             'toggle_radar': self.toggle_radar,
-            'change_mode': self.change_mode
+            'change_mode': self.change_mode,
+            'change_radar_speed': self.change_radar_speed  # Add the radar speed callback
         }
 
     def _init_simulation(self):
@@ -268,6 +269,20 @@ class MainWindow(QWidget):
                 self.sim_modes.apply_mode_to_simulation(self.sim_manager.drones, self.sim_manager.target)
                 self.movement_controller.sim_modes = self.sim_modes
                 break
+
+    def change_radar_speed(self, speed_text):
+        """Handle radar speed changes"""
+        speed_mapping = {
+            "Slow": "slow",
+            "Normal": "normal", 
+            "Fast": "fast",
+            "Very Fast": "very_fast",
+            "Ultra Fast": "ultra_fast"
+        }
+        
+        speed_mode = speed_mapping.get(speed_text, "normal")
+        self.radar_renderer.set_sweep_speed(speed_mode)
+        print(f"Radar speed changed to: {speed_text}")
 
     def paintEvent(self, event):
         """Simplified paint event"""

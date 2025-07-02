@@ -7,10 +7,29 @@ class RadarRenderer:
     def __init__(self):
         self.radar_enabled = False
         self.radar_angle = 0
-        self.radar_radius = 150
-        self.sweep_width = 30  # degrees
+        self.radar_radius = 200
+        self.sweep_width = 50  # degrees
         self.detected_obstacles = []
+
+        self.sweep_speed = 2  # degrees per update, can be adjusted for faster/slower sweeps
+        self.sweep_modes = {
+            'slow': 1,   # 1 degree per update
+            'normal': 2, # 2 degrees per update
+            'fast': 4,    # 4 degrees per update
+            'very_fast': 8,  # 8 degrees per update
+            'ultra_fast': 16  # 16 degrees per update
+        }
         
+    def set_sweep_speed(self, mode):
+        """
+        Set the radar sweep speed based on predefined modes.
+        Available modes: 'slow', 'normal', 'fast', 'very_fast', 'ultra_fast'.
+        If an invalid mode is provided, no change is made.
+        """
+        if mode in self.sweep_modes:
+            self.sweep_speed = self.sweep_modes[mode]
+            print(f"Radar sweep speed set to {mode} ({self.sweep_speed} degrees per update)")
+
     def update_radar(self, obstacles, target, drones):
         """Update radar sweep and detect obstacles from ALL active drones"""
         if not self.radar_enabled:
@@ -120,7 +139,7 @@ class RadarRenderer:
 
         
         # Advance radar sweep
-        self.radar_angle = (self.radar_angle + 2) % 360
+        self.radar_angle = (self.radar_angle + self.sweep_speed) % 360
         
         return visible_obstacles
     

@@ -56,13 +56,22 @@ class UIComponentManager:
         mode_combo.addItems([mode.value for mode in Modes])
         mode_combo.currentTextChanged.connect(callbacks['change_mode'])
         
+        # Add radar speed control
+        speed_label = QLabel("Radar Speed:")
+        speed_combo = QComboBox()
+        speed_combo.addItems(["Slow", "Normal", "Fast", "Very Fast", "Ultra Fast"])
+        speed_combo.setCurrentText("Normal")
+        speed_combo.currentTextChanged.connect(callbacks.get('change_radar_speed', lambda x: None))
+        
         # Add all to layout
         for button in buttons.values():
             control_bar.addWidget(button)
         control_bar.addWidget(mode_combo)
+        control_bar.addWidget(speed_label)
+        control_bar.addWidget(speed_combo)
         control_bar.addStretch()
         
-        return control_bar, buttons, mode_combo
+        return control_bar, buttons, mode_combo, speed_combo
     
     @staticmethod
     def create_missile_status_labels(drones, layout):
