@@ -144,11 +144,17 @@ class Renderer:
 
     def draw_static_elements(self, painter, offset_y, obstacles, target, base):
         """Draw obstacles, target, and base"""
-        # Obstacles
+        # Obstacles - FIX: Remove duplicate loop and fix logic
         painter.setBrush(QColor(200, 50, 50))
+        painter.setPen(QPen(QColor(0, 0, 0), 1))
+        
         for obs in obstacles:
-            adjusted = QRect(obs.x(), obs.y() + offset_y, obs.width(), obs.height())
-            painter.drawRect(adjusted)
+            if not obs.is_hidden:
+                if hasattr(obs, 'rect'):
+                    adjusted = QRect(obs.rect.x(), obs.rect.y() + offset_y, obs.rect.width(), obs.rect.height())
+                else:
+                    adjusted = QRect(obs.x(), obs.y() + offset_y, obs.width(), obs.height())
+                painter.drawRect(adjusted)
 
         # Enhanced target rendering
         if target.is_destroyed():

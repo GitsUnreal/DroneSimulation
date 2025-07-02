@@ -4,6 +4,7 @@ from PyQt5.QtCore import QRect
 from AI.Drone import Drone
 from AI.MainController import MainController
 from EnemyAI.Target import target
+from GUI.Obstacle import Obstacle
 
 class SimulationManager:
     def __init__(self):
@@ -25,8 +26,8 @@ class SimulationManager:
         ]
 
         self.obstacles = [
-            QRect(200, 150, 100, 50),
-            QRect(350, 300, 100, 50),
+            Obstacle(200, 150, 100, 50),
+            Obstacle(350, 300, 100, 50),
         ]
         # Create different types of targets
         target_type = random.choice(["static", "linear", "circular", "waypoint", "random"])

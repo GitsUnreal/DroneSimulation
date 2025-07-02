@@ -1,7 +1,9 @@
+import numpy as np
+
 from AI.ObstacleAvoidance import OAI
 from AI.Boids import Boids
 from AI.MissileManager import MissileManager, MissileType
-import numpy as np
+# REMOVE: from AI.Radar import Radar
 
 WIDTH, HEIGHT, CELL_SIZE = 1080, 720, 20
 
@@ -16,6 +18,8 @@ class MainController:
         self.oai = OAI(self.drones, self.obstacles, CELL_SIZE)
         self.grid = self.oai.make_grid()
         self.oai.add_neighbors(self.grid)
+        
+        # REMOVE: self.radar = Radar(self.drones, self.obstacles, self.target)
 
         # Add missile manager with grid reference
         self.missile_manager = MissileManager(self.oai, self.grid)
@@ -42,6 +46,8 @@ class MainController:
         return self.oai.find_path(self.grid, start, goal, drone)
 
     def update_drones(self):
+        # REMOVE: visible_obstacles = self.radar.update_radar()
+        
         # Update target movement FIRST
         if self.target and self.target.is_moving_target:
             self.target.update_movement()

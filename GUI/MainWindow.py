@@ -13,9 +13,12 @@ from GUI.PerformancePanel import PerformancePanel
 from GUI.StatisticsPanel import StatisticsPanel
 from GUI.AlertSystem import AlertSystem
 from GUI.MissileRenderer import MissileRenderer
+from GUI.RadarRenderer import RadarRenderer
 from AI.Drone import Drone
 from AI.MainController import MainController
 from EnemyAI.Target import target
+from GUI.Obstacle import Obstacle
+
 
 class MainWindow(QWidget):
     def __init__(self):
@@ -32,6 +35,7 @@ class MainWindow(QWidget):
         self.status_checker = StatusChecker()
         self.renderer = Renderer()
         self.missile_renderer = MissileRenderer()
+        self.radar_renderer = RadarRenderer()  # Add radar renderer
 
         # Add new monitoring components
         self.performance_panel = PerformancePanel(self)
@@ -85,7 +89,7 @@ class MainWindow(QWidget):
         main_layout.setSpacing(0)
 
     def create_control_bar(self):
-        """Create the control button bar with new monitoring buttons"""
+        """Create the control button bar with radar button"""
         control_bar = QHBoxLayout()
         
         # Simulation controls
@@ -126,6 +130,13 @@ class MainWindow(QWidget):
         self.perf_button.setStyleSheet("background-color: lightpink; font-size: 10px; border-radius: 3px;")
         self.perf_button.clicked.connect(self.toggle_performance)
 
+        # Add radar button
+        self.radar_button = QPushButton("Radar")
+        self.radar_button.setFixedSize(50, 25)
+        self.radar_button.setStyleSheet("background-color: lightsteelblue; font-size: 10px; border-radius: 3px;")
+        self.radar_button.clicked.connect(self.toggle_radar)
+
+        # Add all buttons to layout
         control_bar.addWidget(self.start_button)
         control_bar.addWidget(self.reset_button)
         control_bar.addWidget(self.grid_button)
@@ -133,6 +144,7 @@ class MainWindow(QWidget):
         control_bar.addWidget(self.debug_button)
         control_bar.addWidget(self.stats_button)
         control_bar.addWidget(self.perf_button)
+        control_bar.addWidget(self.radar_button)  # Add radar button
         control_bar.addStretch()
 
         return control_bar
@@ -140,10 +152,10 @@ class MainWindow(QWidget):
     def init_simulation(self, num_drones=2):
         """Initialize simulation objects and controller."""
         
-        # Create obstacles FIRST
+        # Create obstacles FIRST - FIX: Use Obstacle objects instead of QRect
         self.obstacles = [
-            QRect(200, 150, 100, 50),
-            QRect(350, 300, 100, 50),
+            Obstacle(200, 150, 100, 50),
+            Obstacle(350, 300, 100, 50),
         ]
         
         # Create drones with valid positions
@@ -160,7 +172,7 @@ class MainWindow(QWidget):
                     if self.is_position_valid(test_pos, width=20, height=20, margin=30):
                         valid_position = test_pos
                         break
-            
+        
             drone = Drone(
                 list(valid_position),  # Convert tuple to list
                 [np.random.rand() * 2 - 1, np.random.rand() * 2 - 1],
@@ -310,8 +322,17 @@ class MainWindow(QWidget):
             self.missile_status_labels.append(label)
 
     def update_simulation(self):
-        """Enhanced simulation update with target destruction handling"""
+        """Enhanced simulation update with radar"""
+        if not self.simulation_running:
+            return
+            
         self.sim_manager.handle_collisions()
+        
+        # UPDATE RADAR AND DETECT OBSTACLES - This is the key line!
+        detected_obstacles = self.radar_renderer.update_radar(
+            self.sim_manager.obstacles, 
+            self.sim_manager.drones
+        )
         
         # Get update results including target destruction status
         update_result = self.sim_manager.movement_controller.update_drones()
@@ -412,7 +433,7 @@ class MainWindow(QWidget):
             )
 
     def paintEvent(self, event):
-        """Main painting method"""
+        """Main painting method with radar overlay"""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
 
@@ -425,19 +446,27 @@ class MainWindow(QWidget):
                                          self.sim_manager.target, 
                                          self.sim_manager.base)
 
-        # Draw grid if enabled - FIX: use self.show_grid instead of self.grid_visible
+        # Draw grid if enabled
         if self.show_grid:
             self.renderer.draw_grid(painter, offset_y, self.sim_manager.movement_controller)
+
+        # Draw radar BEFORE drones so drones appear on top
+        self.radar_renderer.draw_radar(
+            painter, 
+            self.sim_manager.drones, 
+            self.sim_manager.obstacles, 
+            offset_y
+        )
 
         # Draw drones
         for drone in self.sim_manager.drones:
             self.renderer.draw_drone_with_status(painter, drone, offset_y)
 
-        # Draw paths if enabled - FIX: use self.show_paths instead of self.paths_visible
+        # Draw paths if enabled
         if self.show_paths:
             self.renderer.draw_paths(painter, offset_y, self.sim_manager.drones)
 
-        # NEW missile rendering using MissileRenderer
+        # Draw missiles
         if hasattr(self.sim_manager.movement_controller, 'missile_manager'):
             self.missile_renderer.draw_missiles(
                 painter, 
@@ -445,11 +474,14 @@ class MainWindow(QWidget):
                 offset_y
             )
 
-    def get_active_drones(self):
-        """Get list of drones that should be visible in simulation"""
-        return [drone for drone in self.sim_manager.drones if drone.alive and not (hasattr(drone, 'has_landed') and drone.has_landed)]
+    def toggle_radar(self):
+        """Toggle radar display"""
+        radar_enabled = self.radar_renderer.toggle_radar()
+        button_color = "lightgreen" if radar_enabled else "lightsteelblue"
+        self.radar_button.setStyleSheet(f"background-color: {button_color}; font-size: 10px; border-radius: 3px;")
+        self.update()
+        print(f"Radar: {'ON' if radar_enabled else 'OFF'}")
 
-    # Toggle methods
     def toggle_grid(self):
         self.show_grid = not self.show_grid
         button_color = "lightgreen" if self.show_grid else "lightblue"
@@ -506,11 +538,17 @@ class MainWindow(QWidget):
         if x < 50 or x > 1000 or y < 100 or y > 600:
             return False
         
-        # Check collision with obstacles
+        # Check collision with obstacles - FIX: Handle Obstacle objects
         for obstacle in self.obstacles:
+            # Get obstacle rectangle
+            if hasattr(obstacle, 'rect'):
+                obs_rect = obstacle.rect
+            else:
+                obs_rect = obstacle
+            
             # Add margin around obstacles
-            if (obstacle.x() - margin <= x <= obstacle.x() + obstacle.width() + margin and
-                obstacle.y() - margin <= y <= obstacle.y() + obstacle.height() + margin):
+            if (obs_rect.x() - margin <= x <= obs_rect.x() + obs_rect.width() + margin and
+                obs_rect.y() - margin <= y <= obs_rect.y() + obs_rect.height() + margin):
                 return False
         
         return True
