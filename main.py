@@ -1,7 +1,7 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout
 from GUI.MainWindow import MainWindow
-from AI.MainController import MainController
+from SimMode.Modes import SimModes, Modes
 
 def main():
     app = QApplication(sys.argv)
