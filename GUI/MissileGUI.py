@@ -1,31 +1,29 @@
 import numpy as np
 
 def update_missiles(drones):
-    """Update missile positions and remove inactive or out-of-bounds missiles."""
+    """Update missile states for all drones"""
     for drone in drones:
-        if not hasattr(drone, 'missiles') or not drone.missiles:
-            continue  # Early exit for performance
-
-        active_missiles = []
-
-        for missile in drone.missiles:
-            if not missile['active']:
-                continue
-
-            # Move missile using optimized logic
-            if not _update_missile_position(missile):
-                missile['active'] = False
-                continue
-
-            # Check bounds
-            x, y = missile['position']
-            if not (0 <= x <= 1080 and 0 <= y <= 720):
-                missile['active'] = False
-                continue
-
-            active_missiles.append(missile)
-
-        drone.missiles = active_missiles
+        if hasattr(drone, 'missiles'):
+            # Update missile positions and states
+            active_missiles = []
+            for missile in drone.missiles:
+                if missile.get('active', False):
+                    # Update missile position
+                    if 'velocity' in missile and 'position' in missile:
+                        dt = 0.05  # 50ms timestep
+                        missile['position'][0] += missile['velocity'][0] * dt
+                        missile['position'][1] += missile['velocity'][1] * dt
+                        
+                        # Check if missile is still in bounds
+                        if (0 <= missile['position'][0] <= 1080 and 
+                            0 <= missile['position'][1] <= 720):
+                            active_missiles.append(missile)
+                        else:
+                            missile['active'] = False
+                    else:
+                        active_missiles.append(missile)
+            
+            drone.missiles = active_missiles
 
 def _update_missile_position(missile):
     """Update missile position and return False if target reached."""
