@@ -1,8 +1,8 @@
 from SimMode.ModeHandler import ModeHandler
 
-class NormalModeHandler(ModeHandler):
+class SearchAndRescueRunModeHandler(ModeHandler):
     def __init__(self):
-        super().__init__("bombing_run")
+        super().__init__("search_and_rescue")
     
     def configure_drones(self, drones):
         for drone in drones:

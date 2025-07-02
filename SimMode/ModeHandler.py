@@ -1,4 +1,6 @@
 from abc import ABC, abstractmethod
+from AI.Drone import DroneMovementConfig
+from AI.MissileSystem import MissileConfig
 
 class ModeHandler(ABC):
     """Base interface for all simulation mode handlers"""
@@ -17,12 +19,17 @@ class ModeHandler(ABC):
         pass
     
     @abstractmethod
-    def get_movement_parameters(self):
+    def get_movement_parameters(self) -> dict:
         """Return movement parameters for this mode"""
         pass
     
     @abstractmethod
-    def should_show_target(self):
+    def get_missile_parameters(self) -> dict:
+        """Return missile parameters for this mode"""
+        pass
+    
+    @abstractmethod
+    def should_show_target(self) -> bool:
         """Whether target should be visible in this mode"""
         pass
     

@@ -25,6 +25,26 @@ class MissileConfig:
     homing_range: float = 100.0
     fuel: float = 100.0
     maneuverability: float = 1.0
+    missile_type: MissileType = MissileType.STANDARD
+
+class MissileConfigPresets(Enum):
+    """Predefined missile configurations for different types"""
+    STANDARD = MissileConfig(
+        speed=20.0, damage=100, explosion_radius=30.0, 
+        missile_type=MissileType.STANDARD
+    )
+    EXPLOSIVE = MissileConfig(
+        speed=15.0, damage=150, explosion_radius=50.0, 
+        missile_type=MissileType.EXPLOSIVE
+    )
+    HOMING = MissileConfig(
+        speed=25.0, damage=80, homing_range=150.0, maneuverability=1.5,
+        missile_type=MissileType.HOMING
+    )
+    PIERCING = MissileConfig(
+        speed=30.0, damage=120, explosion_radius=15.0,
+        missile_type=MissileType.PIERCING
+    )
 
 class Missile:
     def __init__(self, missile_id: str, drone_id: int, missile_type: MissileType, 

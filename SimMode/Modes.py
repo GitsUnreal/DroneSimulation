@@ -1,7 +1,11 @@
 from enum import Enum
 from SimMode.Handlers.NormalModeHandler import NormalModeHandler
-from SimMode.Handlers.SearchAndDestroyHandler import SearchAndDestroyHandler
-# Import other handlers...
+from SimMode.Handlers.SearchAndDestroyHandler import SearchAndDestroyModeHandler
+from SimMode.Handlers.ReconnaissanceHandler import ReconnaissanceModeHandler
+from SimMode.Handlers.PatrolHandler import PatrolModeHandler
+from SimMode.Handlers.BombingRunHandler import BombingRunModeHandler
+from SimMode.Handlers.SearchAndRescueHandler import SearchAndRescueRunModeHandler
+
 
 class Modes(Enum):
     """
@@ -14,7 +18,6 @@ class Modes(Enum):
     PATROL = "patrol"
     SEARCH_AND_RESCUE = "search_and_rescue"
     BOMBING_RUN = "bombing_run"
-    ASSISTANCE = "assistance"
 
 class SimModes:
     """
@@ -24,8 +27,11 @@ class SimModes:
         self.current_mode = Modes.NORMAL
         self.mode_handlers = {
             Modes.NORMAL: NormalModeHandler(),
-            Modes.SEARCH_AND_DESTROY: SearchAndDestroyHandler(),
-            # Add other handlers...
+            Modes.SEARCH_AND_DESTROY: SearchAndDestroyModeHandler(),
+            Modes.RECONNAISSANCE: ReconnaissanceModeHandler(),
+            Modes.PATROL: PatrolModeHandler(),
+            Modes.SEARCH_AND_RESCUE: SearchAndRescueRunModeHandler(),
+            Modes.BOMBING_RUN: BombingRunModeHandler(),
         }
         self.current_handler = self.mode_handlers[Modes.NORMAL]
 

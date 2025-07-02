@@ -1,25 +1,29 @@
 from SimMode.ModeHandler import ModeHandler
+from AI.Drone import DroneMovementMode, DroneMovementConfig
+from AI.MissileSystem import MissileType, MissileConfigPresets
 
-class SearchAndDestroyHandler(ModeHandler):
+class SearchAndDestroyModeHandler(ModeHandler):
     def __init__(self):
-        super().__init__("Search and Destroy")
+        super().__init__("search_and_destroy")
     
     def configure_drones(self, drones):
+        # Use fast assault movement for search and destroy
+        movement_config = DroneMovementMode.FAST_ASSAULT.value
+        
         for drone in drones:
-            drone.detection_range = 80  # Reduced range
-            drone.attack_range = 80
-            drone.max_missiles = 4  # More missiles
-    
+            drone.apply_movement_config(movement_config)
+            drone.max_missiles = 6
+            drone.preferred_missile_type = MissileType.HOMING
+            drone.missile_config = MissileConfigPresets.HOMING.value
+
     def configure_target(self, target):
-        target.hidden = True  # Target starts hidden
+        target.hidden = True
     
     def get_movement_parameters(self):
-        return {
-            'separation_weight': 1.5,  # Closer formation
-            'alignment_weight': 0.2,   # More coordinated
-            'cohesion_weight': 0.3,    # Stay together
-            'target_weight': 2.0       # Aggressive pursuit
-        }
+        return DroneMovementMode.FAST_ASSAULT.value.__dict__
+    
+    def get_missile_parameters(self):
+        return MissileConfigPresets.HOMING.value.__dict__
     
     def should_show_target(self):
-        return False  # Hidden until detected
+        return False

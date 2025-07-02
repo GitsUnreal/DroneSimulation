@@ -1,5 +1,27 @@
 import numpy as np
+from enum import Enum
 from AI.MissileSystem import MissileType
+from dataclasses import dataclass
+
+@dataclass
+class DroneMovementConfig:
+    """Configuration for drone movement parameters"""
+    velocity: float = 5.0
+    turn_rate: float = 0.1
+    detection_range: float = 50.0
+    attack_range: float = 30.0
+    separation_weight: float = 2.0
+    alignment_weight: float = 0.1
+    cohesion_weight: float = 0.1
+    target_weight: float = 1.5
+
+class DroneMovementMode(Enum):
+    """Different movement modes with predefined configs"""
+    STANDARD = DroneMovementConfig(velocity=5.0, turn_rate=0.1)
+    FAST_ASSAULT = DroneMovementConfig(velocity=8.0, turn_rate=0.15, attack_range=40.0)
+    STEALTH = DroneMovementConfig(velocity=3.0, turn_rate=0.05, detection_range=75.0)
+    PATROL = DroneMovementConfig(velocity=4.0, turn_rate=0.08, detection_range=60.0)
+    SEARCH_RESCUE = DroneMovementConfig(velocity=6.0, turn_rate=0.12, detection_range=80.0)
 
 class Drone:
     def __init__(self, position, velocity, drone_id):
@@ -10,13 +32,33 @@ class Drone:
         self.has_attacked = False
         self.has_landed = False
 
+        # Default configurations
+        self.movement_config = DroneMovementConfig()
+        self.missile_config = None
+        self.preferred_missile_type = MissileType.STANDARD
+        
         self.max_missiles = 2
         self.missiles_fired = 0
         self.current_path = []
         self.current_waypoint_index = 0
         
-        
         self.sync_from_position()
+
+    def apply_movement_config(self, config: DroneMovementConfig):
+        """Apply movement configuration to drone"""
+        self.movement_config = config
+        if hasattr(self, 'detection_range'):
+            self.detection_range = config.detection_range
+        if hasattr(self, 'attack_range'):
+            self.attack_range = config.attack_range
+
+    def get_current_speed(self):
+        """Get current movement speed based on config"""
+        return self.movement_config.velocity
+
+    def get_turn_rate(self):
+        """Get current turn rate based on config"""
+        return self.movement_config.turn_rate
 
     def update_position_sync(self):
         """Update position array from x, y coordinates."""
