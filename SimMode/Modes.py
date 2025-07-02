@@ -4,6 +4,7 @@ class Modes(Enum):
     Enum for different simulation
     modes in the simulation.
     """
+    NORMAL = "normal"
     SEARCH_AND_DESTROY = "search_and_destroy"
     RECONNAISSANCE = "reconnaissance"
     PATROL = "patrol"
