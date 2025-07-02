@@ -2,7 +2,7 @@ import numpy as np
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QComboBox
 from PyQt5.QtCore import QTimer, Qt, QRect
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QColor, QBrush  # Add QBrush import
 
 from GUI.MissileGUI import update_missiles
 from GUI.DebugPanel import DebugPanel
@@ -21,6 +21,7 @@ from SimMode.Modes import SimModes, Modes
 from Factory.TargetFactory import TargetFactory
 from Utils.PositionUtils import PositionUtils
 from Utils.DroneUtils import DroneUtils
+from GUI.ExplosionEffects import ExplosionManager
 
 class MainWindow(QWidget):
     
@@ -66,6 +67,10 @@ class MainWindow(QWidget):
 
         self.init_layout()
         self.init_simulation()
+
+        # Initialize screen flash effect
+        self.explosion_manager = ExplosionManager()
+        self.screen_flash = ScreenFlash()
 
     def init_layout(self):
         """Set up the UI layout."""
@@ -171,23 +176,45 @@ class MainWindow(QWidget):
             Obstacle(200, 150, 100, 50),
             Obstacle(350, 300, 100, 50),
         ]
+
+        self.base = QRect(50, 50, 20, 20)
+        base_center = (self.base.x() + self.base.width() / 2, self.base.y() + self.base.height() / 2)
         
         # Create drones with valid positions
         self.drones = []
+        spawn_radius = 20
+
         for i in range(num_drones):
-            # Find valid spawn position for drone
-            valid_position = PositionUtils.find_valid_position(self.obstacles, width=20, height=20, margin=30)
-            
-            # Add some offset for multiple drones
-            if i > 0:
-                for attempt in range(10):
-                    test_pos = (valid_position[0] + i * 40, valid_position[1] + i * 30)
-                    if PositionUtils.is_position_valid(test_pos, self.obstacles, width=20, height=20, margin=30):
-                        valid_position = test_pos
-                        break
-        
+            angle = (2 * np.pi * i) / num_drones
+
+            spawn_x = base_center[0] + spawn_radius * np.cos(angle)
+            spawn_y = base_center[1] + spawn_radius * np.sin(angle)
+            spawn_position = (spawn_x, spawn_y)
+
+            attempts = 0
+            while attempts < 36:
+                if PositionUtils.is_position_valid(spawn_position, self.obstacles, width=20, height=20, margin=30):
+                    break
+
+                attempts += 1
+                test_angle = angle + (attempts * np.pi / 18) # 10 degrees per attempt
+                spawn_x = base_center[0] + spawn_radius * np.cos(test_angle)
+                spawn_y = base_center[1] + spawn_radius * np.sin(test_angle)
+                spawn_position = (spawn_x, spawn_y)
+
+            if attempts >= 36:
+                print(f"Warning: Could not find valid spawn position for drone {i} after 36 attempts. trying larger radius.")
+                for test_radius in range(30, 100, 10):
+                    spawn_x = base_center[0] + test_radius * np.cos(angle)
+                    spawn_y = base_center[1] + test_radius * np.sin(angle)
+                    spawn_position = (spawn_x, spawn_y)
+                    print(f"New spawnpoint for drone {i}: {spawn_position} at radius {test_radius}px")
+                    
+                    if PositionUtils.is_position_valid(spawn_position, self.obstacles, width=20, height=20, margin=10):
+                        print(f"Spawned drone {i} at {test_radius}px radius instead")
+
             drone = Drone(
-                list(valid_position),
+                spawn_position,
                 [np.random.rand() * 2 - 1, np.random.rand() * 2 - 1],
                 i
             )
@@ -202,7 +229,6 @@ class MainWindow(QWidget):
         self.target.hidden = True
         self.target.spotted_by_radar = False
         
-        self.base = QRect(50, 50, 20, 20)
         
         # Update sim_manager with our created objects
         self.sim_manager.drones = self.drones
@@ -320,6 +346,14 @@ class MainWindow(QWidget):
         # Check for alerts
         self.check_for_alerts()
         
+        # Update effects
+        dt = 0.05  # 50ms
+        self.explosion_manager.update(dt)
+        self.screen_flash.update(dt)
+        
+        # Check for missile hits and trigger explosions - CALL IT ON SELF, NOT screen_flash
+        self.check_missile_explosions()
+        
         self.update()
 
     def handle_target_destroyed(self):
@@ -339,6 +373,9 @@ class MainWindow(QWidget):
                 if not hasattr(drone, 'returning_to_base'):
                     drone.has_attacked = True  # Force return to base behavior
                     #print(f"Drone {drone.drone_id} ordered to return to base after target destruction")
+        
+        # Trigger screen flash effect
+        self.screen_flash.trigger_flash(0.8)  # Intensity 0.8
         
         # Optionally pause simulation after a delay
         QTimer.singleShot(2000, self.pause_after_target_destroyed)
@@ -429,6 +466,12 @@ class MainWindow(QWidget):
                 offset_y
             )
 
+        # Draw explosions
+        self.explosion_manager.draw_all(painter, self.control_panel_height)
+    
+        # Draw screen flash
+        self.screen_flash.draw(painter, self.width(), self.height())
+
     def toggle_radar(self):
         """Toggle radar display"""
         radar_enabled = self.radar_renderer.toggle_radar()
@@ -499,3 +542,92 @@ class MainWindow(QWidget):
                 
                 #print(f"Mode changed from {old_handler.name} to {new_handler.name}")
                 break
+
+    def check_missile_explosions(self):
+        """Check for missile hits and create explosion effects"""
+        # Check if missile manager exists
+        if not hasattr(self.sim_manager.movement_controller, 'missile_manager'):
+            return
+        
+        missile_manager = self.sim_manager.movement_controller.missile_manager
+        
+        # Check for missiles that just exploded
+        active_missiles = missile_manager.get_active_missiles()
+        
+        for missile in active_missiles:
+            # Check if missile hit target
+            if hasattr(missile, 'state') and missile.state.value == 'exploding':
+                if not hasattr(missile, 'explosion_triggered'):
+                    # Create explosion at missile position
+                    self.explosion_manager.add_explosion(
+                        missile.position[0], 
+                        missile.position[1], 
+                        intensity=1.5
+                    )
+                    
+                    # Trigger screen flash for major explosions
+                    self.screen_flash.trigger_flash(0.3)
+                    
+                    # Mark explosion as triggered to avoid duplicates
+                    missile.explosion_triggered = True
+            
+            # Alternative: check if missile just hit target
+            elif hasattr(missile, 'hit_target') and missile.hit_target:
+                if not hasattr(missile, 'explosion_triggered'):
+                    # Create explosion at missile position
+                    self.explosion_manager.add_explosion(
+                        missile.position[0], 
+                        missile.position[1], 
+                        intensity=2.0
+                    )
+                    
+                    # Trigger screen flash
+                    self.screen_flash.trigger_flash(0.5)
+                    
+                    # Mark explosion as triggered
+                    missile.explosion_triggered = True
+        
+        # Also check legacy missile system if it exists
+        for drone in self.sim_manager.drones:
+            if hasattr(drone, 'missiles'):
+                for missile in drone.missiles:
+                    if missile.get('active', False) and missile.get('just_hit', False):
+                        # Create explosion at missile position
+                        self.explosion_manager.add_explosion(
+                            missile['position'][0], 
+                            missile['position'][1], 
+                            intensity=2.0
+                        )
+                        
+                        # Trigger screen flash
+                        self.screen_flash.trigger_flash(0.5)
+                        
+                        # Reset the flag
+                        missile['just_hit'] = False
+
+# Add to MainWindow.py
+class ScreenFlash:
+    def __init__(self):
+        self.flash_alpha = 0
+        self.flash_timer = 0
+        self.flash_duration = 0.3
+        
+    def trigger_flash(self, intensity=1.0):
+        self.flash_alpha = int(100 * intensity)
+        self.flash_timer = 0
+        
+    def update(self, dt):
+        if self.flash_alpha > 0:
+            self.flash_timer += dt
+            progress = self.flash_timer / self.flash_duration
+            
+            if progress >= 1.0:
+                self.flash_alpha = 0
+            else:
+                # Fade out flash
+                self.flash_alpha = int(100 * (1 - progress))
+    
+    def draw(self, painter, width, height):
+        if self.flash_alpha > 0:
+            painter.fillRect(0, 0, width, height, 
+                           QColor(255, 255, 255, self.flash_alpha))

@@ -8,7 +8,7 @@ class BombingRunModeHandler(ModeHandler):
     
     def configure_drones(self, drones):
         # Use standard movement for bombing runs
-        movement_config = DroneMovementMode.STANDARD.value
+        movement_config = DroneMovementMode.FAST_ASSAULT.value
         
         for drone in drones:
             drone.apply_movement_config(movement_config)

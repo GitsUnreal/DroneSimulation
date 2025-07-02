@@ -18,7 +18,7 @@ class DroneMovementConfig:
 class DroneMovementMode(Enum):
     """Different movement modes with predefined configs"""
     STANDARD = DroneMovementConfig(velocity=5.0, turn_rate=0.1)
-    FAST_ASSAULT = DroneMovementConfig(velocity=8.0, turn_rate=0.15, attack_range=40.0)
+    FAST_ASSAULT = DroneMovementConfig(velocity=15.0, turn_rate=0.15, attack_range=40.0)
     STEALTH = DroneMovementConfig(velocity=3.0, turn_rate=0.05, detection_range=75.0)
     PATROL = DroneMovementConfig(velocity=4.0, turn_rate=0.08, detection_range=60.0)
     SEARCH_RESCUE = DroneMovementConfig(velocity=6.0, turn_rate=0.12, detection_range=80.0)

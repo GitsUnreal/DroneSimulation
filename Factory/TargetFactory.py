@@ -30,6 +30,10 @@ class TargetFactory:
             new_target = target(target_id=target_id, position=valid_position, height=20, width=20, is_moving_target=True)
             new_target.set_random_movement(direction_change_interval=2.0, speed=2.5)
         
+        # Initialize radar detection attributes for all targets
+        new_target.spotted_by_radar = False
+        new_target.destroyed = False
+        
         #print(f"Created {target_type} target at safe position {valid_position}")
         return new_target
 
