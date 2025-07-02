@@ -1,4 +1,8 @@
 from enum import Enum
+from SimMode.Handlers.NormalModeHandler import NormalModeHandler
+from SimMode.Handlers.SearchAndDestroyHandler import SearchAndDestroyHandler
+# Import other handlers...
+
 class Modes(Enum):
     """
     Enum for different simulation
@@ -18,20 +22,35 @@ class SimModes:
     """
     def __init__(self):
         self.current_mode = Modes.NORMAL
+        self.mode_handlers = {
+            Modes.NORMAL: NormalModeHandler(),
+            Modes.SEARCH_AND_DESTROY: SearchAndDestroyHandler(),
+            # Add other handlers...
+        }
+        self.current_handler = self.mode_handlers[Modes.NORMAL]
 
     def set_mode(self, mode: Modes):
         """
         Set the current simulation mode.
         """
-        if isinstance(mode, Modes):
+        if isinstance(mode, Modes) and mode in self.mode_handlers:
+            old_handler = self.current_handler
             self.current_mode = mode
+            self.current_handler = self.mode_handlers[mode]
             print(f"Simulation mode set to: {self.current_mode.value}")
+            return old_handler, self.current_handler
         else:
             raise ValueError("Invalid simulation mode")
     
-    def get_mode(self) -> Modes:
+    def get_current_handler(self):
         """
-        Get the current simulation mode.
+        Get the current mode handler.
         """
-        return self.current_mode
+        return self.current_handler
     
+    def apply_mode_to_simulation(self, drones, target):
+        """
+        Apply current mode settings to simulation objects
+        """
+        self.current_handler.configure_drones(drones)
+        self.current_handler.configure_target(target)

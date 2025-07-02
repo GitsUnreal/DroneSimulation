@@ -8,7 +8,7 @@ from AI.MissileManager import MissileManager, MissileType
 WIDTH, HEIGHT, CELL_SIZE = 1080, 720, 20
 
 class MainController:
-    def __init__(self, drones, obstacles=None, target=None, base=None):
+    def __init__(self, drones, obstacles=None, target=None, base=None, sim_modes=None):
         self.drones = drones
         self.obstacles = obstacles or []
         self.target = target
@@ -28,6 +28,12 @@ class MainController:
         if self.target:
             self.missile_manager.set_target(self.target)
 
+        self.sim_modes = sim_modes
+        
+        # Apply initial mode settings if provided
+        if self.sim_modes:
+            self.sim_modes.apply_mode_to_simulation(drones, target)
+
         print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
         print(f"Grid created with {len(self.grid)} cells.")
 
@@ -46,6 +52,14 @@ class MainController:
         return self.oai.find_path(self.grid, start, goal, drone)
 
     def update_drones(self):
+        # Get movement parameters from current mode
+        movement_params = self.sim_modes.get_current_handler().get_movement_parameters() if self.sim_modes else {
+            'separation_weight': 2.0,
+            'alignment_weight': 0.1, 
+            'cohesion_weight': 0.1,
+            'target_weight': 1.5
+        }
+        
         # REMOVE: visible_obstacles = self.radar.update_radar()
         
         # Update target movement FIRST
@@ -90,9 +104,9 @@ class MainController:
                 target_force = (target_vec / distance) * 1.5 if distance > 5 else np.zeros(2)
 
             # Boids forces
-            sep = self.boids.compute_separation(drone) * 2.0
-            ali = self.boids.compute_alignment(drone) * 0.1
-            coh = self.boids.compute_cohesion(drone) * 0.1
+            sep = self.boids.compute_separation(drone) * movement_params['separation_weight']
+            ali = self.boids.compute_alignment(drone) * movement_params['alignment_weight']
+            coh = self.boids.compute_cohesion(drone) * movement_params['cohesion_weight']
 
             # Obstacle avoidance
             avoidance_force = np.zeros(2)

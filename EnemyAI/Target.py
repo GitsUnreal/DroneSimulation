@@ -3,7 +3,7 @@ import random
 import math
 
 class target:
-    def __init__(self, target_id, position, height=20, width=20, is_moving_target=False, is_convoy_target=False):
+    def __init__(self, target_id, position, height=20, width=20, is_moving_target=False, is_convoy_target=False, hidden=False):
         """
         Initialize a target with an ID, position, height, and width.
         """
@@ -13,6 +13,7 @@ class target:
         self.height = height
         self.width = width
 
+        self.hidden = hidden
         self.is_moving_target = is_moving_target
         self.is_convoy_target = is_convoy_target
         

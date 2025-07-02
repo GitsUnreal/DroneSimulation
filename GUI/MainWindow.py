@@ -1,6 +1,6 @@
 import numpy as np
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QVBoxLayout, QHBoxLayout, QLabel, QComboBox
 from PyQt5.QtCore import QTimer, Qt, QRect
 from PyQt5.QtGui import QPainter
 
@@ -140,6 +140,12 @@ class MainWindow(QWidget):
         self.radar_button.setFixedSize(50, 25)
         self.radar_button.setStyleSheet("background-color: lightsteelblue; font-size: 10px; border-radius: 3px;")
         self.radar_button.clicked.connect(self.toggle_radar)
+
+        # Add mode selection dropdown
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems([mode.value for mode in Modes])
+        self.mode_combo.currentTextChanged.connect(self.change_mode)
+        control_bar.addWidget(self.mode_combo)
 
         # Add all buttons to layout
         control_bar.addWidget(self.start_button)
@@ -467,3 +473,18 @@ class MainWindow(QWidget):
     def closeEvent(self, event):
         print("Main window closed.")
         event.accept()
+
+    def change_mode(self, mode_text):
+        """Handle mode change from UI"""
+        for mode in Modes:
+            if mode.value == mode_text:
+                old_handler, new_handler = self.sim_modes.set_mode(mode)
+                
+                # Apply new mode to existing simulation
+                self.sim_modes.apply_mode_to_simulation(self.drones, self.target)
+                
+                # Update controller with new mode
+                self.movement_controller.sim_modes = self.sim_modes
+                
+                print(f"Mode changed from {old_handler.name} to {new_handler.name}")
+                break
