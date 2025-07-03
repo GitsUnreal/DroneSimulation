@@ -1,7 +1,7 @@
 import numpy as np
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMainWindow
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QPainter
+from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 
 from GUI.UIComponentManager import UIComponentManager
 from GUI.SimulationManager import SimulationManager
@@ -20,8 +20,66 @@ from AI.MainController import MainController
 from Config.SimulationConfig import SimulationConfig
 from SimMode.Modes import SimModes, Modes
 from Factory.TargetFactory import TargetFactory
+from Utils.SaveLoadManager import SaveLoadManager
 
-class MainWindow(QWidget):
+class SimulationCanvas(QWidget):
+    """Custom widget for drawing the simulation"""
+    def __init__(self, main_window):
+        super().__init__()
+        self.main_window = main_window
+        self.setMinimumSize(800, 600)
+        
+    def paintEvent(self, event):
+        """Paint the simulation"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        
+        # Calculate offset for control panel
+        offset_y = SimulationConfig.CONTROL_PANEL_HEIGHT + 15
+        
+        try:
+            # Draw background first
+            painter.fillRect(self.rect(), Qt.white)
+            
+            # Draw grid if enabled
+            if self.main_window.show_grid:
+                self.main_window.renderer.draw_grid(painter, offset_y, self.main_window.sim_manager.movement_controller)
+            
+            # Draw static elements (obstacles, target, base)
+            self.main_window.renderer.draw_static_elements(
+                painter, offset_y, self.main_window.sim_manager.obstacles, 
+                self.main_window.sim_manager.target, self.main_window.sim_manager.base
+            )
+            
+            # Draw radar
+            self.main_window.radar_renderer.draw_radar(painter, self.main_window.sim_manager.drones, self.main_window.sim_manager.obstacles, offset_y)
+            
+            # Draw drones
+            for drone in self.main_window.sim_manager.drones:
+                if drone.alive:  # Only draw active drones
+                    self.main_window.renderer.draw_drone_with_status(painter, drone, offset_y, SimulationConfig.DRONE_SIZE)
+            
+            # Draw paths if enabled
+            if self.main_window.show_paths:
+                self.main_window.renderer.draw_paths(painter, offset_y, self.main_window.sim_manager.drones)
+            
+            # Draw missiles
+            if hasattr(self.main_window.sim_manager.movement_controller, 'missile_manager'):
+                self.main_window.missile_renderer.draw_missiles(painter, self.main_window.sim_manager.movement_controller.missile_manager, offset_y)
+            
+            # Draw explosion effects
+            self.main_window.explosion_manager.draw_all(painter, SimulationConfig.CONTROL_PANEL_HEIGHT)
+            self.main_window.screen_flash.draw(painter, self.width(), self.height())
+            
+        except Exception as e:
+            print(f"Error in paintEvent: {e}")
+            # Draw error message
+            painter.setPen(Qt.red)
+            painter.drawText(50, 100, f"Rendering Error: {str(e)}")
+        
+        painter.end()
+
+class MainWindow(QMainWindow):
     
     def __init__(self):
         super().__init__()
@@ -29,6 +87,8 @@ class MainWindow(QWidget):
         self._init_components()
         self._init_ui()
         self._init_simulation()
+        self.save_load_manager = SaveLoadManager(self.movement_controller)
+        self.create_file_menu()
 
     def _init_window(self):
         """Initialize window properties"""
@@ -78,14 +138,27 @@ class MainWindow(QWidget):
 
     def _init_ui(self):
         """Initialize UI layout"""
+        # Create central widget for QMainWindow
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        
         main_layout = QVBoxLayout()
-        self.setLayout(main_layout)
+        central_widget.setLayout(main_layout)
 
-        # Create control bar - Updated to handle 4 return values
+        # Create control bar
         callbacks = self._get_ui_callbacks()
-        control_bar, self.buttons, self.mode_combo, self.speed_combo = UIComponentManager.create_control_bar(callbacks)
-        main_layout.addLayout(control_bar)
-        main_layout.addStretch()
+        try:
+            control_bar, self.buttons, self.mode_combo, self.speed_combo = UIComponentManager.create_control_bar(callbacks)
+            main_layout.addLayout(control_bar)
+        except Exception as e:
+            print(f"Error creating control bar: {e}")
+            from PyQt5.QtWidgets import QPushButton
+            test_button = QPushButton("Test Button")
+            main_layout.addWidget(test_button)
+        
+        # Add the simulation canvas
+        self.simulation_canvas = SimulationCanvas(self)
+        main_layout.addWidget(self.simulation_canvas)
 
         # Bottom status area
         bottom_layout = QHBoxLayout()
@@ -111,7 +184,7 @@ class MainWindow(QWidget):
             'toggle_performance': self.toggle_performance,
             'toggle_radar': self.toggle_radar,
             'change_mode': self.change_mode,
-            'change_radar_speed': self.change_radar_speed  # Add the radar speed callback
+            'change_radar_speed': self.change_radar_speed
         }
 
     def _init_simulation(self):
@@ -121,7 +194,8 @@ class MainWindow(QWidget):
             self.sim_manager.drones, 
             self.sim_manager.obstacles, 
             self.sim_manager.target, 
-            self.sim_manager.base
+            self.sim_manager.base,
+            self.sim_modes
         )
         self.sim_manager.movement_controller = self.movement_controller
         
@@ -144,7 +218,8 @@ class MainWindow(QWidget):
         self._update_panels()
         self._check_for_alerts()
         
-        self.update()
+        # Update the canvas
+        self.simulation_canvas.update()
 
     def _update_missile_display(self):
         """Update missile status display"""
@@ -194,7 +269,7 @@ class MainWindow(QWidget):
             duration=4000
         )
 
-    # UI Toggle Methods (simplified)
+    # UI Toggle Methods
     def toggle_simulation(self):
         self.simulation_running = not self.simulation_running
         if self.simulation_running:
@@ -253,7 +328,8 @@ class MainWindow(QWidget):
         self.sim_manager.target = TargetFactory.create_random_target(self.sim_manager.obstacles)
         self.movement_controller = MainController(
             self.sim_manager.drones, self.sim_manager.obstacles, 
-            self.sim_manager.target, self.sim_manager.base
+            self.sim_manager.target, self.sim_manager.base,
+            self.sim_modes
         )
         self.sim_manager.movement_controller = self.movement_controller
         
@@ -284,32 +360,33 @@ class MainWindow(QWidget):
         self.radar_renderer.set_sweep_speed(speed_mode)
         print(f"Radar speed changed to: {speed_text}")
 
-    def paintEvent(self, event):
-        """Simplified paint event"""
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
+    def create_file_menu(self):
+        menubar = self.menuBar()
+        file_menu = menubar.addMenu('File')
         
-        offset_y = SimulationConfig.CONTROL_PANEL_HEIGHT + 15
+        # Save action
+        save_action = file_menu.addAction('Save Simulation')
+        save_action.setShortcut('Ctrl+S')
+        save_action.triggered.connect(self.save_load_manager.save_simulation)
         
-        # Draw all elements using renderer
-        self.renderer.draw_static_elements(
-            painter, offset_y, self.sim_manager.obstacles, 
-            self.sim_manager.target, self.sim_manager.base
-        )
+        # Load action
+        load_action = file_menu.addAction('Load Simulation')
+        load_action.setShortcut('Ctrl+O')
+        load_action.triggered.connect(self.save_load_manager.load_simulation)
         
-        if self.show_grid:
-            self.renderer.draw_grid(painter, offset_y, self.sim_manager.movement_controller)
+        file_menu.addSeparator()
         
-        self.radar_renderer.draw_radar(painter, self.sim_manager.drones, self.sim_manager.obstacles, offset_y)
+        # Quick save/load
+        quick_save_action = file_menu.addAction('Quick Save')
+        quick_save_action.setShortcut('F5')
+        quick_save_action.triggered.connect(self.quick_save)
         
-        for drone in self.sim_manager.drones:
-            self.renderer.draw_drone_with_status(painter, drone, offset_y, SimulationConfig.DRONE_SIZE)
+        quick_load_action = file_menu.addAction('Quick Load')
+        quick_load_action.setShortcut('F9')
+        quick_load_action.triggered.connect(self.quick_load)
         
-        if self.show_paths:
-            self.renderer.draw_paths(painter, offset_y, self.sim_manager.drones)
+    def quick_save(self):
+        self.save_load_manager.save_simulation('quicksave.sim')
         
-        if hasattr(self.sim_manager.movement_controller, 'missile_manager'):
-            self.missile_renderer.draw_missiles(painter, self.sim_manager.movement_controller.missile_manager, offset_y)
-        
-        self.explosion_manager.draw_all(painter, SimulationConfig.CONTROL_PANEL_HEIGHT)
-        self.screen_flash.draw(painter, self.width(), self.height())
+    def quick_load(self):
+        self.save_load_manager.load_simulation('quicksave.sim')

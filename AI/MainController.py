@@ -3,7 +3,7 @@ import numpy as np
 from AI.ObstacleAvoidance import OAI
 from AI.Boids import Boids
 from AI.MissileManager import MissileManager, MissileType
-# REMOVE: from AI.Radar import Radar
+from GUI.SpeedControlWidget import SpeedControlWidget
 
 WIDTH, HEIGHT, CELL_SIZE = 1080, 720, 20
 
@@ -37,6 +37,17 @@ class MainController:
         #print(f"MainController initialized with {len(self.drones)} drones and {len(self.obstacles)} obstacles.")
         #print(f"Grid created with {len(self.grid)} cells.")
 
+        self.simulation_speed = 1.0
+        self.speed_control = SpeedControlWidget()
+        self.speed_control.speed_changed.connect(self.set_simulation_speed)
+        
+    def set_simulation_speed(self, speed):
+        self.simulation_speed = speed
+        # Update timer interval based on speed
+        if hasattr(self, 'timer'):
+            new_interval = max(1, int(self.base_interval / speed))
+            self.timer.setInterval(new_interval)
+            
     def distance_to_target(self, drone):
         """Calculate distance from drone to target."""
         return np.linalg.norm(np.array([self.target.position[0], self.target.position[1]]) - drone.position)
