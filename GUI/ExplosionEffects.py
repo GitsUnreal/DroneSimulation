@@ -29,25 +29,34 @@ class Particle:
         return self.lifetime > 0
 
 class ExplosionEffect:
-    def __init__(self, x, y, intensity=1.0):
+    def __init__(self, x, y, intensity=1.0, radius=50.0, missile_type="standard"):
         self.x = x
         self.y = y
         self.intensity = intensity
+        self.max_radius = radius  # Use configurable radius
+        self.missile_type = missile_type
         self.particles = []
         self.active = True
         self.age = 0
         self.max_age = 3.0
         
-        # Create particles
-        num_particles = int(30 * intensity)
+        # Create particles based on explosion size
+        num_particles = int(30 * intensity * (radius / 50.0))  # Scale particles by radius
+        
         for _ in range(num_particles):
             angle = random.uniform(0, 2 * math.pi)
-            speed = random.uniform(20, 80) * intensity
+            speed = random.uniform(20, 80) * intensity * (radius / 50.0)  # Scale speed by radius
             vx = math.cos(angle) * speed
             vy = math.sin(angle) * speed
             
-            # Different particle types
-            particle_type = random.choice(['fire', 'smoke', 'spark'])
+            # Different particle types based on missile type
+            if missile_type == "explosive":
+                particle_type = random.choice(['fire', 'fire', 'smoke'])  # More fire
+            elif missile_type == "piercing":
+                particle_type = random.choice(['spark', 'spark', 'fire'])  # More sparks
+            else:
+                particle_type = random.choice(['fire', 'smoke', 'spark'])
+                
             if particle_type == 'fire':
                 color = QColor(255, random.randint(100, 255), 0, 255)
                 size = random.uniform(3, 8)
@@ -92,10 +101,11 @@ class ExplosionManager:
     def __init__(self):
         self.explosions = []
     
-    def add_explosion(self, x, y, intensity=1.0):
-        explosion = ExplosionEffect(x, y, intensity)
+    def add_explosion(self, x, y, intensity=1.0, radius=50.0, missile_type="standard"):
+        """Add explosion with configurable radius and type"""
+        explosion = ExplosionEffect(x, y, intensity, radius, missile_type)
         self.explosions.append(explosion)
-    
+
     def update(self, dt):
         self.explosions = [exp for exp in self.explosions if exp.update(dt)]
     

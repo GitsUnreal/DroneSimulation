@@ -31,9 +31,17 @@ class target:
         self.bounds = {'min_x': 50, 'max_x': 800, 'min_y': 100, 'max_y': 500}
         
         # Movement patterns
-        self.movement_pattern = "random"  # "linear", "circular", "waypoint", "random"
+        self.movement_pattern = "none"  # "linear", "circular", "waypoint", "random", "none"
         self.pattern_timer = 0
         self.direction_change_interval = 3.0  # seconds
+
+    def set_none_movement(self):
+        """Set target to not move"""
+        self.movement_pattern = "none"
+        self.velocity = np.zeros(2)
+        self.direction = np.zeros(2)
+        self.speed = 0.0
+        self.pattern_timer = 0
 
     def set_linear_movement(self, direction, speed=2.0):
         """Set target to move in a straight line"""
@@ -95,6 +103,8 @@ class target:
             self._update_waypoint_movement()
         elif self.movement_pattern == "random":
             self._update_random_movement()
+        else:
+            self.set_none_movement()
         
         # Keep target within bounds
         self._constrain_to_bounds()

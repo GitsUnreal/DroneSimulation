@@ -96,13 +96,21 @@ class SimulationController:
         
         for missile in active_missiles:
             if self._should_create_explosion(missile):
+                # Use missile's explosion radius and type
+                explosion_radius = getattr(missile.config, 'explosion_radius', 50.0)
+                missile_type = getattr(missile, 'missile_type', 'standard')
+                
                 self.explosion_manager.add_explosion(
                     missile.position[0], 
                     missile.position[1], 
-                    intensity=1.5 if hasattr(missile, 'state') else 2.0
+                    intensity=1.5,
+                    radius=explosion_radius,
+                    missile_type=missile_type.value if hasattr(missile_type, 'value') else missile_type
                 )
                 
-                self.screen_flash.trigger_flash(0.3 if hasattr(missile, 'state') else 0.5)
+                # Scale screen flash by explosion size
+                flash_intensity = 0.3 * (explosion_radius / 50.0)
+                self.screen_flash.trigger_flash(min(flash_intensity, 1.0))
                 missile.explosion_triggered = True
     
     def _should_create_explosion(self, missile):

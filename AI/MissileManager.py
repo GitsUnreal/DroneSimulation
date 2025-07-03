@@ -24,13 +24,35 @@ class MissileManager:
         self.missile_counter += 1
         missile_id = f"missile_{self.missile_counter}"
         
-        # Create missile with pathfinding
+        # Get drone's missile spawn position (center)
+        drone_spawn_pos = drone.get_missile_spawn_position() if hasattr(drone, 'get_missile_spawn_position') else (drone.position[0] + 10, drone.position[1] + 10)
+        
+        # Calculate target center position
+        if self.target:
+            if hasattr(self.target, 'position') and hasattr(self.target, 'width') and hasattr(self.target, 'height'):
+                target_center = (
+                    self.target.position[0] + self.target.width / 2,
+                    self.target.position[1] + self.target.height / 2
+                )
+            elif hasattr(self.target, 'x') and hasattr(self.target, 'y'):
+                width = getattr(self.target, 'width', 30)
+                height = getattr(self.target, 'height', 30)
+                target_center = (
+                    self.target.x() + width / 2,
+                    self.target.y() + height / 2
+                )
+            else:
+                target_center = target_pos
+        else:
+            target_center = target_pos
+        
+        # Create missile - spawn from drone center
         missile = Missile(
             missile_id=missile_id,
             drone_id=drone.drone_id,
             missile_type=missile_type,
-            start_pos=(drone.position[0], drone.position[1]),
-            target_pos=target_pos,
+            start_pos=drone_spawn_pos,  # Use calculated spawn position
+            target_pos=target_center,
             config=config or MissileConfig()
         )
         
@@ -39,8 +61,8 @@ class MissileManager:
             missile.target_object = self.target
         
         # Calculate path using existing pathfinding
-        start_grid = self.oai.snap_to_grid(missile.position)
-        goal_grid = self.oai.snap_to_grid(target_pos)
+        start_grid = self.oai.snap_to_grid(drone_spawn_pos)
+        goal_grid = self.oai.snap_to_grid(target_center)
         path = self.oai.find_path(self.grid, start_grid, goal_grid, drone)
         
         if path:
@@ -49,7 +71,6 @@ class MissileManager:
         self.missiles.append(missile)
         drone.missiles_fired += 1
         
-        #print(f"Fired {missile_type.value} missile {missile_id} from drone {drone.drone_id} to {target_pos}")
         return True
 
     def reload_missiles(self, drone):

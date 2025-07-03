@@ -27,7 +27,7 @@ class BombingRunModeHandler(ModeHandler):
             target.hidden = False
     
     def get_movement_parameters(self):
-        return DroneMovementMode.STANDARD.value.__dict__
+        return DroneMovementMode.FAST_ASSAULT.value.__dict__
     
     def get_missile_parameters(self):
         return MissileConfigPresets.EXPLOSIVE.value.__dict__

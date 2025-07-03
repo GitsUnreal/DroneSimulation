@@ -170,6 +170,18 @@ class Drone:
         #print(f"Drone {self.drone_id} reactivated for new mission")
         return True
 
+    def get_center_position(self):
+        """Get the center position of the drone"""
+        size = getattr(self, 'size', 20)  # Default drone size
+        return (
+            self.position[0] + size / 2,
+            self.position[1] + size / 2
+        )
+
+    def get_missile_spawn_position(self):
+        """Get the position where missiles should spawn from this drone"""
+        return self.get_center_position()
+
 def get_landed_drones_at_base(drones):
     """Get all drones that are landed at base"""
     return [drone for drone in drones if hasattr(drone, 'has_landed') and drone.has_landed]

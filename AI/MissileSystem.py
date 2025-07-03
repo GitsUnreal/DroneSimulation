@@ -129,8 +129,9 @@ class Missile:
             else:
                 self.velocity = (direction / distance) * self.config.speed
         else:
-            # Direct flight to target
-            direction = self.target_position - self.position
+            # Direct flight to target CENTER
+            target_center = self._get_target_center()
+            direction = target_center - self.position
             distance = np.linalg.norm(direction)
             
             if distance < 15:  # Increased hit radius for better detection
@@ -248,19 +249,47 @@ class Missile:
                 'position': self.position,
                 'radius': self.config.explosion_radius * progress,
                 'intensity': 1.0 - progress,
-                'active': True
+                'active': True,
+                'max_radius': self.config.explosion_radius,  # Add max radius for scaling
+                'missile_type': self.missile_type.value  # Add missile type for different effects
             }
         return {'active': False}
 
     def _check_target_collision(self) -> bool:
         """Check if missile hit the target"""
-        # Check distance to target position
-        distance_to_target = np.linalg.norm(self.target_position - self.position)
+        # Get target center position
+        target_center = self._get_target_center()
         
-        if distance_to_target < 20:  # Hit radius
+        # Check distance to target center
+        distance_to_target = np.linalg.norm(target_center - self.position)
+        
+        # Use a reasonable hit radius - smaller for more precision
+        hit_radius = 20  # Reduced from 20 for better precision
+        
+        if distance_to_target < hit_radius:
             #print(f"🎯 Missile {self.missile_id} HIT TARGET! Distance: {distance_to_target:.1f}")
-            self.hit_target = True  # Mark that we hit the target
+            self.hit_target = True
             self.explode()
             return True
         
         return False
+
+    def _get_target_center(self) -> np.ndarray:
+        """Get the center position of the target"""
+        if self.target_object:
+            # If we have a target object, calculate its center
+            if hasattr(self.target_object, 'position') and hasattr(self.target_object, 'width') and hasattr(self.target_object, 'height'):
+                return np.array([
+                    self.target_object.position[0] + self.target_object.width / 2,
+                    self.target_object.position[1] + self.target_object.height / 2
+                ])
+            elif hasattr(self.target_object, 'x') and hasattr(self.target_object, 'y'):
+                width = getattr(self.target_object, 'width', 30)
+                height = getattr(self.target_object, 'height', 30)
+                return np.array([
+                    self.target_object.x() + width / 2,
+                    self.target_object.y() + height / 2
+                ])
+        
+        # Fallback to stored target position
+        return self.target_position
