@@ -303,7 +303,7 @@ class MainWindow(QWidget):
         self.radar_renderer.draw_radar(painter, self.sim_manager.drones, self.sim_manager.obstacles, offset_y)
         
         for drone in self.sim_manager.drones:
-            self.renderer.draw_drone_with_status(painter, drone, offset_y)
+            self.renderer.draw_drone_with_status(painter, drone, offset_y, SimulationConfig.DRONE_SIZE)
         
         if self.show_paths:
             self.renderer.draw_paths(painter, offset_y, self.sim_manager.drones)

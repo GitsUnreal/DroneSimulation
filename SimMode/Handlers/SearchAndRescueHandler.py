@@ -1,48 +1,36 @@
 from SimMode.ModeHandler import ModeHandler
+from AI.Drone import DroneMovementMode, DroneMovementConfig
+from AI.MissileSystem import MissileType, MissileConfigPresets
 
 class SearchAndRescueRunModeHandler(ModeHandler):
     def __init__(self):
-        super().__init__("search_and_rescue")
+        super().__init__("normal_mode")
     
     def configure_drones(self, drones):
+        # Use standard movement for bombing runs
+        movement_config = DroneMovementMode.FAST_ASSAULT.value
+        
         for drone in drones:
-            drone.detection_range = 10
-            drone.attack_range = 30
-            drone.max_missiles = 6
-            drone.missile_config = self.get_missile_parameters()
-            drone.movement_config = self.get_movement_parameters()
-
-    def drone_movement_parameters(self):
-        return {
-            'speed': 50,
-            'turn_rate': 5
-        }
+            drone.apply_movement_config(movement_config)
+            drone.max_missiles = 8
+            drone.preferred_missile_type = MissileType.HOMING
+            drone.missile_config = MissileConfigPresets.HOMING.value
 
     def configure_target(self, target):
         # Handle both single target and multiple targets
         if hasattr(target, '__iter__') and not isinstance(target, str):
             # Multiple targets
             for t in target:
-                t.hidden = True
+                t.hidden = False
         else:
             # Single target
-            target.hidden = True
+            target.hidden = False
     
     def get_movement_parameters(self):
-        return {
-            'separation_weight': 2.0,
-            'alignment_weight': 0.1,
-            'cohesion_weight': 0.1,
-            'target_weight': 1.5
-        }
+        return DroneMovementMode.STANDARD.value.__dict__
     
     def get_missile_parameters(self):
-        return {
-            'speed': 100,
-            'lifetime': 5,
-            'explosion_radius': 10,
-            'misile_type': 'explosive'
-        }
+        return MissileConfigPresets.HOMING.value.__dict__
     
     def should_show_target(self):
         return True

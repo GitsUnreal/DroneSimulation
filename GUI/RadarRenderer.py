@@ -130,10 +130,10 @@ class RadarRenderer:
                                 enemy.is_spotted(enemy_pos, self.radar_radius)
                             
                             # Handle different position access methods for logging
-                            if hasattr(enemy, 'position'):
-                                print(f"🎯 RADAR SPOTTED TARGET at ({enemy.position[0]:.1f}, {enemy.position[1]:.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
-                            else:
-                                print(f"🎯 RADAR SPOTTED TARGET at ({enemy.x():.1f}, {enemy.y():.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                            # if hasattr(enemy, 'position'):
+                            #     print(f"🎯 RADAR SPOTTED TARGET at ({enemy.position[0]:.1f}, {enemy.position[1]:.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                            # else:
+                            #     print(f"🎯 RADAR SPOTTED TARGET at ({enemy.x():.1f}, {enemy.y():.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
                         detected_by_any_drone = True
                         break  # Stop checking other drones for this enemy
 

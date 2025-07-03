@@ -1,7 +1,7 @@
 import numpy as np
 
 # Behavior constants
-DESIRED_SEPARATION = 30
+DESIRED_SEPARATION = 25
 NEIGHBOR_RADIUS = 100
 MAX_SPEED = 4.0
 

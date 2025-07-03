@@ -1,5 +1,5 @@
-from PyQt5.QtGui import QPainter, QColor, QFont, QPen
-from PyQt5.QtCore import QRect
+from PyQt5.QtGui import QPainter, QColor, QFont, QPen, QBrush
+from PyQt5.QtCore import QRect, Qt
 import numpy as np
 
 class Renderer:
@@ -73,7 +73,7 @@ class Renderer:
                 painter.setPen(QColor(color.red(), color.green(), color.blue(), 200))
                 painter.drawLine(int(drone.x), int(drone.y) + offset_y, wx, wy + offset_y)
 
-    def draw_drone_with_status(self, painter, drone, offset_y):
+    def draw_drone_with_status(self, painter, drone, offset_y, drone_size):
         """Draw drone with status icons - but skip landed drones"""
         # Don't draw landed drones
         if hasattr(drone, 'has_landed') and drone.has_landed:
@@ -89,7 +89,7 @@ class Renderer:
         else:
             painter.setBrush(QColor(0, 120, 215))  # Blue for active
         
-        painter.drawEllipse(draw_x, draw_y, 20, 20)
+        painter.drawEllipse(draw_x, draw_y, drone_size, drone_size)
         
         # Status icons around the drone
         self.draw_status_icons(painter, drone, draw_x, draw_y)
