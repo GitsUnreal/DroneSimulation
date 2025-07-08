@@ -1,9 +1,8 @@
 import numpy as np
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMainWindow
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMainWindow, QPushButton, QLabel, QComboBox
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 
-from gui.UIComponentManager import UIComponentManager
 from core.simulation.SimulationManager import SimulationManager
 from gui.panels.DebugPanel import DebugPanel
 from gui.StatusChecker import StatusChecker
@@ -41,7 +40,7 @@ class SimulationCanvas(QWidget):
         
         try:
             # Draw background first
-            painter.fillRect(self.rect(), Qt.white)
+            painter.fillRect(self.rect(), QColor(255, 255, 255))
             
             # Draw grid if enabled
             if self.main_window.show_grid:
@@ -56,11 +55,47 @@ class SimulationCanvas(QWidget):
             # Draw radar
             self.main_window.radar_renderer.draw_radar(painter, self.main_window.sim_manager.drones, self.main_window.sim_manager.obstacles, offset_y)
             
-            # Draw drones
-            for drone in self.main_window.sim_manager.drones:
-                if drone.alive:  # Only draw active drones
-                    self.main_window.renderer.draw_drone_with_status(painter, drone, offset_y, SimulationConfig.DRONE_SIZE)
+
+            # Draw drones (simple and safe)
+            drones = getattr(self.main_window.sim_manager, 'drones', [])
             
+            for i, drone in enumerate(drones):
+                try:
+                    # Safe attribute access with defaults
+                    x = getattr(drone, 'x', 100 + i * 50)
+                    y = getattr(drone, 'y', 100 + i * 30)
+                    alive = getattr(drone, 'alive', True)
+                    drone_id = getattr(drone, 'drone_id', i + 1)
+                    
+                    if alive:
+                        # Draw drone as blue circle
+                        painter.setPen(QPen(QColor(100, 150, 255), 2))
+                        painter.setBrush(QBrush(QColor(100, 150, 255)))
+                        drone_size = 15
+                        painter.drawEllipse(
+                            int(x - drone_size/2), 
+                            int(y + offset_y - drone_size/2), 
+                            drone_size, 
+                            drone_size
+                        )
+                        
+                        # Draw drone ID
+                        painter.setPen(QPen(QColor(255, 255, 255)))
+                        painter.drawText(int(x - 5), int(y + offset_y + 5), str(drone_id))
+                        
+                except Exception as drone_error:
+                    # Fallback: draw a simple drone at default position
+                    painter.setPen(QPen(QColor(100, 150, 255), 2))
+                    painter.setBrush(QBrush(QColor(100, 150, 255)))
+                    default_x = 100 + i * 50
+                    default_y = 150 + i * 30
+                    painter.drawEllipse(
+                        int(default_x - 7), 
+                        int(default_y + offset_y - 7), 
+                        14, 14
+                    )
+                    painter.setPen(QPen(QColor(255, 255, 255)))
+                    painter.drawText(int(default_x - 3), int(default_y + offset_y + 3), str(i+1))
             # Draw paths if enabled
             if self.main_window.show_paths:
                 self.main_window.renderer.draw_paths(painter, offset_y, self.main_window.sim_manager.drones)
@@ -76,7 +111,7 @@ class SimulationCanvas(QWidget):
         except Exception as e:
             print(f"Error in paintEvent: {e}")
             # Draw error message
-            painter.setPen(Qt.red)
+            painter.setPen(QColor(255, 120, 120))
             painter.drawText(50, 100, f"Rendering Error: {str(e)}")
         
         painter.end()
@@ -84,6 +119,8 @@ class SimulationCanvas(QWidget):
 class MainWindow(QMainWindow):
     
     def __init__(self):
+        super().__init__()
+        self.setGeometry(100, 100, 800, 700)
         super().__init__()
         self._init_window()
         self._init_components()
@@ -96,7 +133,7 @@ class MainWindow(QMainWindow):
         """Initialize window properties"""
         self.setWindowTitle("Drone Simulator")
         self.resize(SimulationConfig.WINDOW_WIDTH, SimulationConfig.WINDOW_HEIGHT)
-        self.setStyleSheet("background-color: #f0f0f0;")
+        self.setStyleSheet("background-color: #f8f8f8;")
 
     def _init_components(self):
         """Initialize all components"""
@@ -151,42 +188,145 @@ class MainWindow(QMainWindow):
             'change_mode': self.change_mode,
             'change_radar_speed': self.change_radar_speed
         }
+
     def _init_ui(self):
-        """Initialize UI layout"""
-        # Create central widget for QMainWindow
+        """Initialize the user interface with proper control panel layout"""
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
-
-        # Create control bar
-        callbacks = self._get_ui_callbacks()
-        try:
-            control_bar, self.buttons, self.mode_combo, self.speed_combo = UIComponentManager.create_control_bar(callbacks)
-            main_layout.addLayout(control_bar)
-        except Exception as e:
-            print(f"Error creating control bar: {e}")
-            from PyQt5.QtWidgets import QPushButton
-            test_button = QPushButton("Test Button")
-            main_layout.addWidget(test_button)
+        # Create main layout
+        main_layout = QVBoxLayout(central_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(0)
         
-        # Add the simulation canvas
+        # Create control panel with all buttons
+        control_panel = QWidget()
+        control_panel.setFixedHeight(SimulationConfig.CONTROL_PANEL_HEIGHT)
+        control_panel.setStyleSheet("background-color: #f5f5f5; border-bottom: 1px solid #ccc;")
+        
+        control_layout = QHBoxLayout(control_panel)
+        control_layout.setContentsMargins(5, 5, 5, 5)
+        
+        # Create callback handlers first
+        callbacks = self.create_callback_handlers()
+        
+        # Start Simulation button
+        start_button = QPushButton("Start Simulation")
+        start_button.setStyleSheet("background-color: #A8E6A8; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd; font-weight: bold; font-size: 14px;")
+        start_button.clicked.connect(callbacks['toggle_simulation'])
+        control_layout.addWidget(start_button)
+        
+        # Reset button
+        reset_button = QPushButton("Reset")
+        reset_button.setStyleSheet("background-color: #FFB3B3; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        reset_button.clicked.connect(callbacks['reset_simulation'])
+        control_layout.addWidget(reset_button)
+        
+        # Grid button
+        grid_button = QPushButton("Grid")
+        grid_button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        grid_button.clicked.connect(callbacks['toggle_grid'])
+        control_layout.addWidget(grid_button)
+        
+        # Paths button
+        paths_button = QPushButton("Paths")
+        paths_button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        paths_button.clicked.connect(callbacks['toggle_paths'])
+        control_layout.addWidget(paths_button)
+        
+        # Debug button
+        debug_button = QPushButton("Debug")
+        debug_button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        debug_button.clicked.connect(callbacks['toggle_debug'])
+        control_layout.addWidget(debug_button)
+        
+        # Stats button
+        stats_button = QPushButton("Stats")
+        stats_button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        stats_button.clicked.connect(callbacks['toggle_statistics'])
+        control_layout.addWidget(stats_button)
+        
+        # Perf button
+        perf_button = QPushButton("Perf")
+        perf_button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        perf_button.clicked.connect(callbacks['toggle_performance'])
+        control_layout.addWidget(perf_button)
+        
+        # Radar button
+        radar_button = QPushButton("Radar")
+        radar_button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+        radar_button.clicked.connect(callbacks['toggle_radar'])
+        control_layout.addWidget(radar_button)
+        
+        # Mode dropdown
+        # QLabel and QComboBox already imported at top, QPushButton, QLabel, QComboBox
+        control_layout.addWidget(QLabel("Mode:"))
+        self.mode_combo = QComboBox()
+        self.mode_combo.addItems(["Normal", "Recon", "Search Destroy"])
+        self.mode_combo.setCurrentText("Normal")
+        self.mode_combo.currentTextChanged.connect(callbacks['change_mode'])
+        control_layout.addWidget(self.mode_combo)
+        
+        # Radar Speed dropdown
+        control_layout.addWidget(QLabel("Radar Speed:"))
+        self.speed_combo = QComboBox()
+        self.speed_combo.addItems(["Slow", "Normal", "Fast", "Very Fast", "Ultra Fast"])
+        self.speed_combo.setCurrentText("Normal")
+        self.speed_combo.currentTextChanged.connect(callbacks['change_radar_speed'])
+        control_layout.addWidget(self.speed_combo)
+        
+        # Store buttons for later reference
+        self.buttons = {
+            'start_button': start_button,
+            'reset_button': reset_button,
+            'grid_button': grid_button,
+            'paths_button': paths_button,
+            'debug_button': debug_button,
+            'stats_button': stats_button,
+            'perf_button': perf_button,
+            'radar_button': radar_button
+        }
+        
+        # Add control panel to main layout
+        main_layout.addWidget(control_panel)
+        
+        # Create simulation canvas
         self.simulation_canvas = SimulationCanvas(self)
         main_layout.addWidget(self.simulation_canvas)
-
-        # Bottom status area
-        bottom_layout = QHBoxLayout()
-        self.missile_status_layout = QVBoxLayout()
-        self.missile_status_layout.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
         
-        bottom_layout.addLayout(self.missile_status_layout)
-        bottom_layout.addStretch()
+        # Create status area for missile labels at bottom
+        status_widget = QWidget()
+        status_widget.setFixedHeight(40)
+        status_widget.setStyleSheet("background-color: #f8f8f8; border-top: 1px solid #ccc;")
         
-        main_layout.addLayout(bottom_layout)
-        main_layout.setContentsMargins(5, 5, 5, 5)
-        main_layout.setSpacing(0)
-
+        status_layout = QHBoxLayout(status_widget)
+        status_layout.setContentsMargins(10, 5, 10, 5)
+        
+        # Create missile status labels
+        try:
+            drones = getattr(self.sim_manager, 'drones', [])
+            self.missile_status_labels = []
+            
+            for i, drone in enumerate(drones):
+                drone_id = getattr(drone, 'drone_id', i+1)
+                missiles_fired = getattr(drone, 'missiles_fired', 0)
+                max_missiles = getattr(drone, 'max_missiles', 2)
+                alive = getattr(drone, 'alive', True)
+                
+                status_text = f"Drone {drone_id}: {missiles_fired}/{max_missiles} missiles - {'Alive' if alive else 'Destroyed'}"
+                label = QLabel(status_text)
+                label.setStyleSheet("color: green; font-size: 12px; background-color: rgba(255,255,255,150); padding: 2px 5px; border-radius: 3px; margin-right: 10px;")
+                status_layout.addWidget(label)
+                self.missile_status_labels.append(label)
+                
+        except Exception as e:
+            print(f"Error creating missile status: {e}")
+            self.missile_status_labels = []
+        
+        # Add status widget to main layout
+        main_layout.addWidget(status_widget)
+        
+        print("✅ UI initialized with proper control panel layout")
     def _get_ui_callbacks(self):
         """Get all UI callback functions"""
         return {
@@ -215,9 +355,8 @@ class MainWindow(QMainWindow):
         self.sim_manager.movement_controller = self.movement_controller
         
         # Create missile status labels
-        self.missile_status_labels = UIComponentManager.create_missile_status_labels(
-            self.sim_manager.drones, self.missile_status_layout
-        )
+        # # self.missile_status_labels = UIComponentManager.create_missile_status_labels( # Removed UIComponentManager dependency # Removed UIComponentManager dependency
+        # self.sim_manager.drones, self.missile_status_layout # Fixed indentation and commented out)
 
     def _update_simulation(self):
         """Main simulation update loop"""
@@ -264,16 +403,16 @@ class MainWindow(QMainWindow):
 
     def _check_drone_alerts(self, drone):
         """Check alerts for a specific drone"""
-        if not drone.alive and not hasattr(drone, '_destruction_alerted'):
-            self.alert_system.show_drone_destroyed_alert(drone.drone_id)
+        if not getattr(drone, "alive", True) and not hasattr(drone, '_destruction_alerted'):
+            self.alert_system.show_drone_destroyed_alert(getattr(drone, "drone_id", "?"))
             drone._destruction_alerted = True
         
-        if drone.missiles_fired >= drone.max_missiles and not hasattr(drone, '_missiles_alerted'):
-            self.alert_system.show_all_missiles_fired_alert(drone.drone_id)
+        if drone.missiles_fired >= getattr(drone, "max_missiles", 2) and not hasattr(drone, '_missiles_alerted'):
+            self.alert_system.show_all_missiles_fired_alert(getattr(drone, "drone_id", "?"))
             drone._missiles_alerted = True
         
         if hasattr(drone, 'has_landed') and drone.has_landed and not hasattr(drone, '_landing_alerted'):
-            self.alert_system.show_drone_landed_alert(drone.drone_id)
+            self.alert_system.show_drone_landed_alert(getattr(drone, "drone_id", "?"))
             drone._landing_alerted = True
 
     def _on_target_destroyed(self):
@@ -296,15 +435,15 @@ class MainWindow(QMainWindow):
 
     def toggle_grid(self):
         self.show_grid = not self.show_grid
-        UIComponentManager.update_button_style(self.buttons['grid_button'], self.show_grid, 'grid_button')
+        # UIComponentManager.update_button_style(self.buttons['grid_button'], self.show_grid, 'grid_button') # Removed UIComponentManager dependency
 
     def toggle_paths(self):
         self.show_paths = not self.show_paths
-        UIComponentManager.update_button_style(self.buttons['path_button'], self.show_paths, 'path_button')
+        # UIComponentManager.update_button_style(self.buttons['path_button'], self.show_paths, 'path_button') # Removed UIComponentManager dependency
 
     def toggle_debug(self):
         self.show_debug = not self.show_debug
-        UIComponentManager.update_button_style(self.buttons['debug_button'], self.show_debug, 'debug_button')
+        # UIComponentManager.update_button_style(self.buttons['debug_button'], self.show_debug, 'debug_button') # Removed UIComponentManager dependency
         
         if self.show_debug:
             self.debug_panel.create_panel()
@@ -313,23 +452,23 @@ class MainWindow(QMainWindow):
 
     def toggle_radar(self):
         radar_enabled = self.radar_renderer.toggle_radar()
-        UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button')
+        # UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button') # Removed UIComponentManager dependency
 
     def toggle_statistics(self):
         if self.statistics_panel.is_visible:
             self.statistics_panel.hide_panel()
-            UIComponentManager.update_button_style(self.buttons['stats_button'], False, 'stats_button')
+        # UIComponentManager.update_button_style(self.buttons['stats_button'], False, 'stats_button') # Removed UIComponentManager dependency
         else:
             self.statistics_panel.show_panel()
-            UIComponentManager.update_button_style(self.buttons['stats_button'], True, 'stats_button')
+        # UIComponentManager.update_button_style(self.buttons['stats_button'], True, 'stats_button') # Removed UIComponentManager dependency
 
     def toggle_performance(self):
         if self.performance_panel.is_visible:
             self.performance_panel.hide_panel()
-            UIComponentManager.update_button_style(self.buttons['perf_button'], False, 'perf_button')
+        # UIComponentManager.update_button_style(self.buttons['perf_button'], False, 'perf_button') # Removed UIComponentManager dependency
         else:
             self.performance_panel.show_panel()
-            UIComponentManager.update_button_style(self.buttons['perf_button'], True, 'perf_button')
+        # UIComponentManager.update_button_style(self.buttons['perf_button'], True, 'perf_button') # Removed UIComponentManager dependency
 
     def reset_simulation(self):
         # Clear existing labels
@@ -349,9 +488,8 @@ class MainWindow(QMainWindow):
         self.sim_manager.movement_controller = self.movement_controller
         
         # Recreate labels
-        self.missile_status_labels = UIComponentManager.create_missile_status_labels(
-            self.sim_manager.drones, self.missile_status_layout
-        )
+        # # self.missile_status_labels = UIComponentManager.create_missile_status_labels( # Removed UIComponentManager dependency # Removed UIComponentManager dependency
+        # self.sim_manager.drones, self.missile_status_layout # Fixed indentation and commented out)
 
     def change_mode(self, mode_text):
         for mode in Modes:
@@ -406,13 +544,6 @@ class MainWindow(QMainWindow):
     def quick_load(self):
         self.save_load_manager.load_simulation('quicksave.sim')
 
-    def toggle_simulation(self):
-        """Toggle simulation running state"""
-        if self.simulation_running:
-            self.stop_simulation()
-        else:
-            self.start_simulation()
-    
     def start_simulation(self):
         """Start the simulation"""
         self.simulation_running = True
@@ -426,65 +557,6 @@ class MainWindow(QMainWindow):
         self.timer.stop()
         self.simulation_controller.stop_simulation()
         print("⏹️ Simulation stopped")
-    
-    def reset_simulation(self):
-        """Reset the simulation"""
-        self.stop_simulation()
-        self.simulation_controller.reset_simulation()
-        self._init_simulation()
-        print("🔄 Simulation reset")
-    
-    def toggle_grid(self):
-        """Toggle grid display"""
-        self.show_grid = not self.show_grid
-        self.update()
-    
-    def toggle_paths(self):
-        """Toggle path display"""
-        self.show_paths = not self.show_paths
-        self.update()
-    
-    def toggle_debug(self):
-        """Toggle debug panel"""
-        self.show_debug = not self.show_debug
-        if hasattr(self, 'debug_panel'):
-            if self.show_debug:
-                self.debug_panel.show_panel()
-            else:
-                self.debug_panel.hide_panel()
-    
-    def toggle_statistics(self):
-        """Toggle statistics panel"""
-        if hasattr(self, 'statistics_panel'):
-            self.statistics_panel.toggle_panel()
-    
-    def toggle_performance(self):
-        """Toggle performance panel"""
-        if hasattr(self, 'performance_panel'):
-            self.performance_panel.toggle_panel()
-    
-    def toggle_radar(self):
-        """Toggle radar display"""
-        if hasattr(self, 'radar_renderer'):
-            enabled = self.radar_renderer.toggle_radar()
-            print(f"Radar {'enabled' if enabled else 'disabled'}")
-    
-    def change_mode(self, mode_text):
-        """Change simulation mode"""
-        from simulation_modes.ModeTypes import ModeTypes
-        mode_map = {
-            "normal": ModeTypes.NORMAL,
-            "recon": ModeTypes.RECON,
-            "search_destroy": ModeTypes.SEARCH_DESTROY
-        }
-        if mode_text.lower() in mode_map:
-            self.sim_modes.set_mode(mode_map[mode_text.lower()])
-            print(f"Mode changed to: {mode_text}")
-    
-    def change_radar_speed(self, speed_text):
-        """Change radar sweep speed"""
-        if hasattr(self, 'radar_renderer'):
-            self.radar_renderer.set_sweep_speed(speed_text.lower().replace(" ", "_"))
     
     def _on_target_destroyed(self):
         """Handle target destroyed event"""
