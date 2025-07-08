@@ -112,3 +112,24 @@ class Drone(MovableEntity):
 def get_landed_drones_at_base(drones):
     """Get all drones that are landed at base"""
     return [drone for drone in drones if hasattr(drone, 'has_landed') and drone.has_landed]
+    @property
+    def x(self):
+        """Get x position"""
+        return self.position[0] if hasattr(self, 'position') else 100
+    
+    @x.setter
+    def x(self, value):
+        """Set x position"""
+        if hasattr(self, 'position'):
+            self.position[0] = value
+    
+    @property
+    def y(self):
+        """Get y position"""
+        return self.position[1] if hasattr(self, 'position') else 100
+    
+    @y.setter
+    def y(self, value):
+        """Set y position"""
+        if hasattr(self, 'position'):
+            self.position[1] = value

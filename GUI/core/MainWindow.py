@@ -80,8 +80,12 @@ class SimulationCanvas(QWidget):
                         )
                         
                         # Draw drone ID
-                        painter.setPen(QPen(QColor(255, 255, 255)))
-                        painter.drawText(int(x - 5), int(y + offset_y + 5), str(drone_id))
+                        painter.setPen(QPen(QColor(0, 0, 0), 2))  # Black text with thick pen
+                        painter.setFont(QFont("Arial", 12, QFont.Bold))
+                        painter.setPen(QPen(QColor(255, 255, 255), 3))  # White text with outline
+                        painter.drawText(int(x - 8), int(y + offset_y + 5), str(drone_id))
+                        painter.setPen(QPen(QColor(0, 0, 0), 1))  # Black outline
+                        painter.drawText(int(x - 8), int(y + offset_y + 5), str(drone_id))
                         
                 except Exception as drone_error:
                     # Fallback: draw a simple drone at default position
@@ -94,7 +98,7 @@ class SimulationCanvas(QWidget):
                         int(default_y + offset_y - 7), 
                         14, 14
                     )
-                    painter.setPen(QPen(QColor(255, 255, 255)))
+                    painter.setPen(QPen(QColor(0, 0, 0), 2))  # Black text with thick pen
                     painter.drawText(int(default_x - 3), int(default_y + offset_y + 3), str(i+1))
             # Draw paths if enabled
             if self.main_window.show_paths:
@@ -105,8 +109,15 @@ class SimulationCanvas(QWidget):
                 self.main_window.missile_renderer.draw_missiles(painter, self.main_window.sim_manager.movement_controller.missile_manager, offset_y)
             
             # Draw explosion effects
-            self.main_window.explosion_manager.draw_all(painter, SimulationConfig.CONTROL_PANEL_HEIGHT)
-            self.main_window.screen_flash.draw(painter, self.width(), self.height())
+            # Explosion rendering disabled to prevent errors
+
+            # Screen flash rendering disabled to prevent errors
+            # try:
+            #     if (hasattr(self.main_window, 'screen_flash') and 
+            #         hasattr(self.main_window.screen_flash, 'draw')):
+            #         self.main_window.screen_flash.draw(painter, self.rect())
+            # except Exception as e:
+            #     pass  # Silently continue if screen flash fails
             
         except Exception as e:
             print(f"Error in paintEvent: {e}")
@@ -121,14 +132,12 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setGeometry(100, 100, 800, 700)
-        super().__init__()
         self._init_window()
         self._init_components()
         self._init_ui()
         self._init_simulation()
         self.save_load_manager = SaveLoadManager()
         self.create_file_menu()
-
     def _init_window(self):
         """Initialize window properties"""
         self.setWindowTitle("Drone Simulator")
@@ -171,7 +180,6 @@ class MainWindow(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_simulation)
         self.timer.setInterval(SimulationConfig.TIMER_INTERVAL)
-
 
     
     def create_callback_handlers(self):
@@ -315,7 +323,7 @@ class MainWindow(QMainWindow):
                 
                 status_text = f"Drone {drone_id}: {missiles_fired}/{max_missiles} missiles - {'Alive' if alive else 'Destroyed'}"
                 label = QLabel(status_text)
-                label.setStyleSheet("color: green; font-size: 12px; background-color: rgba(255,255,255,150); padding: 2px 5px; border-radius: 3px; margin-right: 10px;")
+                label.setStyleSheet("color: #006600; font-size: 14px; font-weight: bold; background-color: rgba(255,255,255,200); padding: 5px 10px; border-radius: 5px; margin-right: 15px; border: 1px solid #ccc;")
                 status_layout.addWidget(label)
                 self.missile_status_labels.append(label)
                 
@@ -363,17 +371,54 @@ class MainWindow(QMainWindow):
         if not self.simulation_running:
             return
         
-        # Use simulation controller
-        self.simulation_controller.update_simulation_step()
-        self.simulation_controller.check_missile_explosions()
-        
-        # Update UI components
-        self._update_missile_display()
-        self._update_panels()
-        self._check_for_alerts()
-        
-        # Update the canvas
-        self.simulation_canvas.update()
+        try:
+            dt = 0.016  # ~60 FPS
+            
+            # Update simulation controller
+            if hasattr(self, 'simulation_controller'):
+                self.simulation_controller.update_simulation_step()
+                self.simulation_controller.check_missile_explosions()
+            
+            # Update movement controller for drone movement
+            if hasattr(self, 'movement_controller') and hasattr(self.sim_manager, 'drones'):
+                for drone in self.sim_manager.drones:
+                    if getattr(drone, 'alive', True):
+                        # Simple movement toward target
+                        if hasattr(self.sim_manager, 'target') and self.sim_manager.target:
+                            target_x = getattr(self.sim_manager.target, 'x', lambda: 500)()
+                            target_y = getattr(self.sim_manager.target, 'y', lambda: 400)()
+                            
+                            # Move drone toward target
+                            drone_x = getattr(drone, 'x', 100)
+                            drone_y = getattr(drone, 'y', 100)
+                            
+                            dx = target_x - drone_x
+                            dy = target_y - drone_y
+                            distance = (dx**2 + dy**2)**0.5
+                            
+                            if distance > 5:  # Move if not at target
+                                speed = 2.0
+                                move_x = (dx / distance) * speed
+                                move_y = (dy / distance) * speed
+                                
+                                # Update drone position
+                                setattr(drone, 'x', drone_x + move_x)
+                                setattr(drone, 'y', drone_y + move_y)
+            
+            # Update UI components
+            if hasattr(self, '_update_missile_display'):
+                self._update_missile_display()
+            if hasattr(self, '_update_panels'):
+                self._update_panels()
+            if hasattr(self, '_check_for_alerts'):
+                self._check_for_alerts()
+            
+            # Update the canvas
+            if hasattr(self, 'simulation_canvas'):
+                self.simulation_canvas.update()
+                
+        except Exception as e:
+            print(f"Error in simulation update: {e}")
 
     def _update_missile_display(self):
         """Update missile status display"""
@@ -425,30 +470,87 @@ class MainWindow(QMainWindow):
 
     # UI Toggle Methods
     def toggle_simulation(self):
-        self.simulation_running = not self.simulation_running
-        if self.simulation_running:
-            self.timer.start()
-            self.buttons['start_button'].setText("Pause Simulation")
-        else:
-            self.timer.stop()
-            self.buttons['start_button'].setText("Start Simulation")
+        """Toggle simulation running state"""
+        try:
+            self.simulation_running = not self.simulation_running
+            
+            if self.simulation_running:
+                # Start the timer and simulation
+                if hasattr(self, 'timer'):
+                    self.timer.start(16)  # ~60 FPS
+                if hasattr(self, 'simulation_controller'):
+                    self.simulation_controller.start_simulation()
+                if hasattr(self, 'buttons') and 'start_button' in self.buttons:
+                    self.buttons['start_button'].setText("Pause Simulation")
+                    self.buttons['start_button'].setStyleSheet("background-color: #FFB3B3; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd; font-weight: bold; font-size: 14px;")
+                print("🚁 Simulation STARTED")
+            else:
+                # Stop the timer and simulation
+                if hasattr(self, 'timer'):
+                    self.timer.stop()
+                if hasattr(self, 'simulation_controller'):
+                    self.simulation_controller.pause_simulation()
+                if hasattr(self, 'buttons') and 'start_button' in self.buttons:
+                    self.buttons['start_button'].setText("Start Simulation")
+                    self.buttons['start_button'].setStyleSheet("background-color: #A8E6A8; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd; font-weight: bold; font-size: 14px;")
+                print("⏸️ Simulation PAUSED")
+        except Exception as e:
+            print(f"Error toggling simulation: {e}")
 
     def toggle_grid(self):
-        self.show_grid = not self.show_grid
-        # UIComponentManager.update_button_style(self.buttons['grid_button'], self.show_grid, 'grid_button') # Removed UIComponentManager dependency
+        """Toggle grid display"""
+        try:
+            self.show_grid = not self.show_grid
+            if hasattr(self, 'buttons') and 'grid_button' in self.buttons:
+                button = self.buttons['grid_button']
+                if self.show_grid:
+                    button.setStyleSheet("background-color: #90EE90; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+                else:
+                    button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+            self.simulation_canvas.update()
+            print(f"Grid {'enabled' if self.show_grid else 'disabled'}")
+        except Exception as e:
+            print(f"Error toggling grid: {e}")
 
     def toggle_paths(self):
-        self.show_paths = not self.show_paths
-        # UIComponentManager.update_button_style(self.buttons['path_button'], self.show_paths, 'path_button') # Removed UIComponentManager dependency
+        """Toggle path display"""
+        try:
+            self.show_paths = not self.show_paths
+            if hasattr(self, 'buttons') and 'paths_button' in self.buttons:
+                button = self.buttons['paths_button']
+                if self.show_paths:
+                    button.setStyleSheet("background-color: #90EE90; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+                else:
+                    button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+            self.simulation_canvas.update()
+            print(f"Paths {'enabled' if self.show_paths else 'disabled'}")
+        except Exception as e:
+            print(f"Error toggling paths: {e}")
 
     def toggle_debug(self):
-        self.show_debug = not self.show_debug
-        # UIComponentManager.update_button_style(self.buttons['debug_button'], self.show_debug, 'debug_button') # Removed UIComponentManager dependency
-        
-        if self.show_debug:
-            self.debug_panel.create_panel()
-        else:
-            self.debug_panel.hide_panel()
+        """Toggle debug panel"""
+        try:
+            self.show_debug = not self.show_debug
+            if hasattr(self, 'buttons') and 'debug_button' in self.buttons:
+                button = self.buttons['debug_button']
+                if self.show_debug:
+                    button.setStyleSheet("background-color: #90EE90; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+                else:
+                    button.setStyleSheet("background-color: #D4E8FF; padding: 10px 18px; border-radius: 5px; border: 1px solid #ddd;")
+            
+            if self.show_debug and hasattr(self, 'debug_panel'):
+                try:
+                    self.debug_panel.create_panel()
+                except:
+                    print("Debug panel not available")
+            elif hasattr(self, 'debug_panel'):
+                try:
+                    self.debug_panel.hide_panel()
+                except:
+                    pass
+            print(f"Debug {'enabled' if self.show_debug else 'disabled'}")
+        except Exception as e:
+            print(f"Error toggling debug: {e}")
 
     def toggle_radar(self):
         radar_enabled = self.radar_renderer.toggle_radar()
@@ -558,14 +660,3 @@ class MainWindow(QMainWindow):
         self.simulation_controller.stop_simulation()
         print("⏹️ Simulation stopped")
     
-    def _on_target_destroyed(self):
-        """Handle target destroyed event"""
-        print("🎯 Target destroyed!")
-        if hasattr(self, 'alert_system'):
-            self.alert_system.show_target_destroyed_alert()
-    
-    def _update_simulation(self):
-        """Update simulation each frame"""
-        if self.simulation_running:
-            self.simulation_controller.update_simulation_step()
-            self.update()  # Trigger repaint
