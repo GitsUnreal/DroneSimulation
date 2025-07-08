@@ -4,12 +4,12 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Updated imports to match your actual project structure
-from AI.Drone import Drone
-from AI.MissileSystem import Missile, MissileType, MissileConfig
-from AI.ObstacleAvoidance import OAI
-from AI.MainController import MainController
-from EnemyAI.Target import target
-from Utils.SaveLoadManager import SaveLoadManager
+from drone_system.core.Drone import Drone
+from drone_system.weapons.MissileSystem import Missile, MissileType, MissileConfig
+from core.pathfinding.ObstacleAvoidance import OAI
+from core.simulation.SimulationController import MainController
+from core.entities.targets.Target import Target
+from utils.io.SaveLoadManager import SaveLoadManager
 import numpy as np
 
 class TestDroneFunctionality(unittest.TestCase):
@@ -40,7 +40,7 @@ class TestDroneFunctionality(unittest.TestCase):
         
     def test_missile_system_creation(self):
         """Test missile system basic functionality"""
-        from AI.MissileSystem import Missile, MissileType, MissileConfig
+        from drone_system.weapons.MissileSystem import Missile, MissileType, MissileConfig
         
         # Create a missile
         missile = Missile(
@@ -59,7 +59,7 @@ class TestDroneFunctionality(unittest.TestCase):
         
     def test_missile_movement(self):
         """Test missile movement"""
-        from AI.MissileSystem import Missile, MissileType, MissileConfig
+        from drone_system.weapons.MissileSystem import Missile, MissileType, MissileConfig
         
         missile = Missile(
             missile_id="test_missile",
@@ -154,7 +154,7 @@ class TestPerformance(unittest.TestCase):
 class TestExplosionEffects(unittest.TestCase):
     def test_explosion_manager(self):
         """Test explosion effect creation"""
-        from GUI.ExplosionEffects import ExplosionManager
+        from gui.ExplosionEffects import ExplosionManager
         
         explosion_manager = ExplosionManager()
         initial_count = len(explosion_manager.explosions)

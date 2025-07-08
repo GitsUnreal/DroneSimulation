@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QPushButton, QHBoxLayout, QVBoxLayout, QLabel, QComboBox
 from PyQt5.QtCore import Qt
-from Config.SimulationConfig import SimulationConfig
-from SimMode.Modes import Modes
+from config.SimulationConfig import SimulationConfig
+from simulation_modes.ModeTypes import Modes
 
 class UIComponentManager:
     """Manages UI component creation and styling"""
@@ -74,20 +74,35 @@ class UIComponentManager:
         return control_bar, buttons, mode_combo, speed_combo
     
     @staticmethod
-    def create_missile_status_labels(drones, layout):
-        """Create missile status labels for all drones"""
-        labels = []
-        for drone in drones:
-            label = QLabel(f"Drone {drone.drone_id}: 0/2 missiles fired, 0 active - Alive")
-            label.setStyleSheet(
-                "font-size: 12px; color: green; background-color: rgba(255,255,255,150); "
-                "padding: 2px; border-radius: 3px;"
-            )
-            layout.addWidget(label)
-            labels.append(label)
-        return labels
-    
+
     @staticmethod
+    def create_missile_status_labels(drones, layout):
+        """Create missile status labels for drones with error handling"""
+        labels = []
+        
+        try:
+            for i, drone in enumerate(drones):
+                drone_id = getattr(drone, 'drone_id', i+1)
+                missiles_fired = getattr(drone, 'missiles_fired', 0)
+                max_missiles = getattr(drone, 'max_missiles', 2)
+                alive = getattr(drone, 'alive', True)
+                
+                status = "Alive" if alive else "Destroyed"
+                label_text = f"Drone {drone_id}: {missiles_fired}/{max_missiles} missiles - {status}"
+                
+                label = QLabel(label_text)
+                label.setStyleSheet("font-size: 12px; color: green; background-color: rgba(255,255,255,150); padding: 2px; border-radius: 3px;")
+                layout.addWidget(label)
+                labels.append(label)
+        
+        except Exception as e:
+            print(f"Error creating missile status labels: {e}")
+            # Create a fallback label
+            fallback_label = QLabel("Drone status unavailable")
+            layout.addWidget(fallback_label)
+            labels.append(fallback_label)
+        
+        return labels
     def update_button_style(button, active, color_key):
         """Update button style based on active state"""
         color = SimulationConfig.COLORS['active_button'] if active else SimulationConfig.COLORS[color_key]
