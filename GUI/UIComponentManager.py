@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import QPushButton, QHBoxLayout, QVBoxLayout, QLabel, QComboBox
 from PyQt5.QtCore import Qt
-from Config.SimulationConfig import SimulationConfig
-from SimMode.Modes import Modes
+from config.SimulationConfig import SimulationConfig
+from simulation_modes.ModeTypes import Modes
 
 class UIComponentManager:
     """Manages UI component creation and styling"""
