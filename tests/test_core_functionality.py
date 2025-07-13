@@ -4,10 +4,10 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Updated imports to match your actual project structure
-from AI.Drone import Drone
-from AI.MissileSystem import Missile, MissileType, MissileConfig
-from AI.ObstacleAvoidance import OAI
-from AI.MainController import MainController
+from DroneSystem.Drone import Drone
+from DroneSystem.MissileSystem import Missile, MissileType, MissileConfig
+from DroneSystem.ObstacleAvoidance import OAI
+from DroneSystem.MainController import MainController
 from EnemyAI.Target import target
 from Utils.SaveLoadManager import SaveLoadManager
 import numpy as np
@@ -40,7 +40,7 @@ class TestDroneFunctionality(unittest.TestCase):
         
     def test_missile_system_creation(self):
         """Test missile system basic functionality"""
-        from AI.MissileSystem import Missile, MissileType, MissileConfig
+        from DroneSystem.MissileSystem import Missile, MissileType, MissileConfig
         
         # Create a missile
         missile = Missile(
@@ -59,7 +59,7 @@ class TestDroneFunctionality(unittest.TestCase):
         
     def test_missile_movement(self):
         """Test missile movement"""
-        from AI.MissileSystem import Missile, MissileType, MissileConfig
+        from DroneSystem.MissileSystem import Missile, MissileType, MissileConfig
         
         missile = Missile(
             missile_id="test_missile",

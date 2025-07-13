@@ -1,6 +1,6 @@
 import random
 import numpy as np
-from EnemyAI.Target import target
+from EnemySystem.Target import target
 from Utils.PositionUtils import PositionUtils
 
 class TargetFactory:

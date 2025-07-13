@@ -1,8 +1,8 @@
 import numpy as np
 
-from AI.ObstacleAvoidance import OAI
-from AI.Boids import Boids
-from AI.MissileManager import MissileManager, MissileType
+from DroneSystem.ObstacleAvoidance import OAI
+from DroneSystem.Boids import Boids
+from DroneSystem.MissileManager import MissileManager, MissileType
 from GUI.SpeedControlWidget import SpeedControlWidget
 
 WIDTH, HEIGHT, CELL_SIZE = 1080, 720, 20

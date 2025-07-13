@@ -14,9 +14,9 @@ from GUI.AlertSystem import AlertSystem
 from GUI.MissileRenderer import MissileRenderer
 from GUI.RadarRenderer import RadarRenderer
 from GUI.ExplosionEffects import ExplosionManager, ScreenFlash
-from AI.SimulationController import SimulationController
-from AI.DroneStateManager import DroneStateManager
-from AI.MainController import MainController
+from DroneSystem.SimulationController import SimulationController
+from DroneSystem.DroneStateManager import DroneStateManager
+from DroneSystem.MainController import MainController
 from Config.SimulationConfig import SimulationConfig
 from SimMode.Modes import SimModes, Modes
 from Factory.TargetFactory import TargetFactory

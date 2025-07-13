@@ -1,6 +1,6 @@
 import numpy as np
 from enum import Enum
-from AI.MissileSystem import MissileType
+from DroneSystem.MissileSystem import MissileType
 from dataclasses import dataclass
 
 @dataclass

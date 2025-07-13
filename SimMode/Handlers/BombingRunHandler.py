@@ -1,6 +1,6 @@
 from SimMode.ModeHandler import ModeHandler
-from AI.Drone import DroneMovementMode, DroneMovementConfig
-from AI.MissileSystem import MissileType, MissileConfigPresets
+from DroneSystem.Drone import DroneMovementMode, DroneMovementConfig
+from DroneSystem.MissileSystem import MissileType, MissileConfigPresets
 
 """
 Bombing run rules:
