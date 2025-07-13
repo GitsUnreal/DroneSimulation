@@ -2,6 +2,18 @@ from SimMode.ModeHandler import ModeHandler
 from AI.Drone import DroneMovementMode, DroneMovementConfig
 from AI.MissileSystem import MissileType, MissileConfigPresets
 
+"""
+Search and Rescue mode rules:
+1. Drones should use stealth movement.
+2. Drones should have a maximum of 8 missiles.
+3. Drones should prefer explosive missiles.
+4. Drones should be hiding targets.
+5. Drones should not show targets unless spotted by radar.
+6. Drones should autommatically use radar to detect targets.
+7. Drones should automaticcaly return to base when low on fuel.
+8. Drones should not engage a target unless it has spotted the target.
+"""
+
 class SearchAndRescueRunModeHandler(ModeHandler):
     def __init__(self):
         super().__init__("normal_mode")

@@ -2,6 +2,19 @@ from SimMode.ModeHandler import ModeHandler
 from AI.Drone import DroneMovementMode, DroneMovementConfig
 from AI.MissileSystem import MissileType, MissileConfigPresets
 
+"""
+Reconnaissance mode rules:
+1. Drones should use stealth movement.
+2. Drones should have a maximum of 8 missiles.
+3. Drones should prefer explosive missiles.
+4. Drones should be hiding targets.
+5. Drones should not show targets unless spotted by radar.
+6. Drones should not engage targets unless they are spotted.
+7. Drones should not use any weapons unless giving command to fire.
+8. Drones should autommatically use radar to detect targets.
+9. Drones should automaticcaly return to base when low on fuel.
+"""
+
 class ReconnaissanceModeHandler(ModeHandler):
     def __init__(self):
         super().__init__("reconnaissance")

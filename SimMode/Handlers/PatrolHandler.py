@@ -2,13 +2,21 @@ from SimMode.ModeHandler import ModeHandler
 from AI.Drone import DroneMovementMode, DroneMovementConfig
 from AI.MissileSystem import MissileType, MissileConfigPresets
 
+"""
+Patrol mode rules:
+1. Drones should use Patrol movement.
+2. Drones should have a maximum of 8 missiles.
+3. Drones should prefer explosive missiles.
+4. Drones should not hide targets.
+"""
+
 class PatrolModeHandler(ModeHandler):
     def __init__(self):
         super().__init__("normal_mode")
     
     def configure_drones(self, drones):
         # Use standard movement for bombing runs
-        movement_config = DroneMovementMode.FAST_ASSAULT.value
+        movement_config = DroneMovementMode.PATROL.value
         
         for drone in drones:
             drone.apply_movement_config(movement_config)

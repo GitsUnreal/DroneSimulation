@@ -176,6 +176,12 @@
 - ~~Performance drops with >5 drones~~ *(Monitoring system in place)*
 - ~~Pathfinding can be slow with complex obstacles~~ *(Optimized)*
 - ~~UI rendering not working~~ *(Fixed with SimulationCanvas)*
+- Perf button doenst work.
+- Stats button doesnt work.
+- Cant change gamemode in the GUI.
+- Cannot spawn a convour of targets.
+- Cannot load a save. 
+
 
 ### Development Priorities
 1. ~~Fix return-to-base navigation~~ ✅

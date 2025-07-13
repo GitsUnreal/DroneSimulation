@@ -2,6 +2,14 @@ from SimMode.ModeHandler import ModeHandler
 from AI.Drone import DroneMovementMode, DroneMovementConfig
 from AI.MissileSystem import MissileType, MissileConfigPresets
 
+"""
+Bombing run rules:
+1. Drones should use fast assault movement.
+2. Drones should have a maximum of 8 missiles.
+3. Drones should prefer explosive missiles.
+4. Drones should not hide targets.
+"""
+
 class BombingRunModeHandler(ModeHandler):
     def __init__(self):
         super().__init__("bombing_run")
