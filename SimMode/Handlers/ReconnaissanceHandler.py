@@ -5,8 +5,8 @@ from DroneSystem.MissileSystem import MissileType, MissileConfigPresets
 """
 Reconnaissance mode rules:
 1. Drones should use stealth movement.
-2. Drones should have a maximum of 8 missiles.
-3. Drones should prefer explosive missiles.
+2. Drones should have a maximum of 2 missiles.
+3. Drones should prefer homing missiles.
 4. Drones should be hiding targets.
 5. Drones should not show targets unless spotted by radar.
 6. Drones should not engage targets unless they are spotted.

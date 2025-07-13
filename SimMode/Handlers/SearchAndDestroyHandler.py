@@ -5,8 +5,8 @@ from DroneSystem.MissileSystem import MissileType, MissileConfigPresets
 """
 Search and Destroy mode rules:
 1. Drones should use stealth movement.
-2. Drones should have a maximum of 8 missiles.
-3. Drones should prefer explosive missiles.
+2. Drones should have a maximum of 6 missiles.
+3. Drones should prefer homming missiles.
 4. Drones should be hiding targets.
 5. Drones should not show targets unless spotted by radar.
 6. Drones should autommatically use radar to detect targets.

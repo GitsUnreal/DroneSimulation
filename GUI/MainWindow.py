@@ -300,14 +300,6 @@ class MainWindow(QMainWindow):
         radar_enabled = self.radar_renderer.toggle_radar()
         UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button')
 
-    def toggle_statistics(self):
-        if self.statistics_panel.is_visible:
-            self.statistics_panel.hide_panel()
-            UIComponentManager.update_button_style(self.buttons['stats_button'], False, 'stats_button')
-        else:
-            self.statistics_panel.show_panel()
-            UIComponentManager.update_button_style(self.buttons['stats_button'], True, 'stats_button')
-
     def toggle_performance(self):
         if self.performance_panel.is_visible:
             self.performance_panel.hide_panel()
@@ -315,6 +307,18 @@ class MainWindow(QMainWindow):
         else:
             self.performance_panel.show_panel()
             UIComponentManager.update_button_style(self.buttons['perf_button'], True, 'perf_button')
+        # Force update panel after toggling
+        self.performance_panel.update_metrics(self.sim_manager.drones, self.sim_manager.movement_controller)
+
+    def toggle_statistics(self):
+        if self.statistics_panel.is_visible:
+            self.statistics_panel.hide_panel()
+            UIComponentManager.update_button_style(self.buttons['stats_button'], False, 'stats_button')
+        else:
+            self.statistics_panel.show_panel()
+            UIComponentManager.update_button_style(self.buttons['stats_button'], True, 'stats_button')
+        # Force update panel after toggling
+        self.statistics_panel.update_statistics(self.sim_manager.drones, self.sim_manager.movement_controller)
 
     def reset_simulation(self):
         # Clear existing labels
@@ -342,8 +346,48 @@ class MainWindow(QMainWindow):
         for mode in Modes:
             if mode.value == mode_text:
                 self.sim_modes.set_mode(mode)
+                # Recreate movement controller with new mode
+                self.movement_controller = MainController(
+                    self.sim_manager.drones,
+                    self.sim_manager.obstacles,
+                    self.sim_manager.target,
+                    self.sim_manager.base,
+                    self.sim_modes
+                )
+                self.sim_manager.movement_controller = self.movement_controller
+                # Apply mode rules to drones and target
                 self.sim_modes.apply_mode_to_simulation(self.sim_manager.drones, self.sim_manager.target)
-                self.movement_controller.sim_modes = self.sim_modes
+                # Update missile status labels
+                for label in self.missile_status_labels:
+                    label.deleteLater()
+                self.missile_status_labels = UIComponentManager.create_missile_status_labels(
+                    self.sim_manager.drones, self.missile_status_layout
+                )
+
+                # --- Mode-specific UI and logic ---
+                handler = self.sim_modes.get_current_handler()
+                # Radar logic
+                radar_modes = {
+                    "normal_mode": (False, "normal"),
+                    "search_and_destroy": (True, "fast"),
+                    "escort": (False, "normal"),
+                    "reconnaissance": (True, "slow"),
+                    "defensive": (True, "normal"),
+                    "bombing_run": (True, "fast"),
+                    "patrol": (True, "normal"),
+                    "search_and_rescue": (True, "fast"),
+                }
+                mode_key = getattr(handler, "mode_name", mode.value)
+                radar_enabled, sweep_speed = radar_modes.get(mode_key, (False, "normal"))
+                self.radar_renderer.enable_radar(radar_enabled)
+                UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button')
+                self.radar_renderer.set_sweep_speed(sweep_speed)
+
+                # Target visibility logic
+                # This is handled in Renderer.draw_static_elements using should_show_target and spotted_by_radar
+                # But you may want to force update here if needed
+
+                self._update_panels()
                 break
 
     def change_radar_speed(self, speed_text):
@@ -390,3 +434,31 @@ class MainWindow(QMainWindow):
         
     def quick_load(self):
         self.save_load_manager.load_simulation('quicksave.sim')
+        # Reinitialize controllers and UI after loading
+        self.movement_controller = MainController(
+            self.sim_manager.drones, self.sim_manager.obstacles,
+            self.sim_manager.target, self.sim_manager.base, self.sim_modes
+        )
+        self.sim_manager.movement_controller = self.movement_controller
+        # Update missile status labels
+        for label in self.missile_status_labels:
+            label.deleteLater()
+        self.missile_status_labels = UIComponentManager.create_missile_status_labels(
+            self.sim_manager.drones, self.missile_status_layout
+        )
+        self._update_panels()
+
+    def spawn_convoy_targets(self, count=5):
+        """Spawn a convoy of targets"""
+        self.sim_manager.targets = [
+            TargetFactory.create_random_target(self.sim_manager.obstacles)
+            for _ in range(count)
+        ]
+        # Apply mode rules to all targets
+        self.sim_modes.apply_mode_to_simulation(self.sim_manager.drones, self.sim_manager.targets)
+        # Update movement controller
+        self.movement_controller = MainController(
+            self.sim_manager.drones, self.sim_manager.obstacles,
+            self.sim_manager.targets, self.sim_manager.base, self.sim_modes
+        )
+        self.sim_manager.movement_controller = self.movement_controller
