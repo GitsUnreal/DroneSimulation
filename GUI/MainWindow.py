@@ -195,7 +195,8 @@ class MainWindow(QMainWindow):
             self.sim_manager.obstacles, 
             self.sim_manager.target, 
             self.sim_manager.base,
-            self.sim_modes
+            self.sim_modes,
+            alert_system= self.alert_system
         )
         self.sim_manager.movement_controller = self.movement_controller
         
@@ -250,10 +251,12 @@ class MainWindow(QMainWindow):
     def _check_drone_alerts(self, drone):
         """Check alerts for a specific drone"""
         if not drone.alive and not hasattr(drone, '_destruction_alerted'):
+            # Remove debug print
             self.alert_system.show_drone_destroyed_alert(drone.drone_id)
             drone._destruction_alerted = True
         
         if drone.missiles_fired >= drone.max_missiles and not hasattr(drone, '_missiles_alerted'):
+            # Remove debug print
             self.alert_system.show_all_missiles_fired_alert(drone.drone_id)
             drone._missiles_alerted = True
         
@@ -275,6 +278,7 @@ class MainWindow(QMainWindow):
         if self.simulation_running:
             self.timer.start()
             self.buttons['start_button'].setText("Pause Simulation")
+            # Remove all test alerts - just clean toggle
         else:
             self.timer.stop()
             self.buttons['start_button'].setText("Start Simulation")
@@ -333,9 +337,13 @@ class MainWindow(QMainWindow):
         self.movement_controller = MainController(
             self.sim_manager.drones, self.sim_manager.obstacles, 
             self.sim_manager.target, self.sim_manager.base,
-            self.sim_modes
+            self.sim_modes,
+            alert_system=self.alert_system
         )
         self.sim_manager.movement_controller = self.movement_controller
+        
+        # Reset mission complete flag
+        self.movement_controller.mission_complete_alerted = False
         
         # Recreate labels
         self.missile_status_labels = UIComponentManager.create_missile_status_labels(
@@ -352,7 +360,8 @@ class MainWindow(QMainWindow):
                     self.sim_manager.obstacles,
                     self.sim_manager.target,
                     self.sim_manager.base,
-                    self.sim_modes
+                    self.sim_modes,
+                    alert_system=self.alert_system  # <-- ADD THIS LINE
                 )
                 self.sim_manager.movement_controller = self.movement_controller
                 # Apply mode rules to drones and target
@@ -437,7 +446,8 @@ class MainWindow(QMainWindow):
         # Reinitialize controllers and UI after loading
         self.movement_controller = MainController(
             self.sim_manager.drones, self.sim_manager.obstacles,
-            self.sim_manager.target, self.sim_manager.base, self.sim_modes
+            self.sim_manager.target, self.sim_manager.base, self.sim_modes,
+            alert_system=self.alert_system  # <-- ADD THIS LINE
         )
         self.sim_manager.movement_controller = self.movement_controller
         # Update missile status labels
@@ -459,6 +469,7 @@ class MainWindow(QMainWindow):
         # Update movement controller
         self.movement_controller = MainController(
             self.sim_manager.drones, self.sim_manager.obstacles,
-            self.sim_manager.targets, self.sim_manager.base, self.sim_modes
+            self.sim_manager.targets, self.sim_manager.base, self.sim_modes,
+            alert_system=self.alert_system  # <-- ADD THIS LINE
         )
         self.sim_manager.movement_controller = self.movement_controller

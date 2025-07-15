@@ -8,11 +8,13 @@ from GUI.SpeedControlWidget import SpeedControlWidget
 WIDTH, HEIGHT, CELL_SIZE = 1080, 720, 20
 
 class MainController:
-    def __init__(self, drones, obstacles=None, target=None, base=None, sim_modes=None):
+    def __init__(self, drones, obstacles=None, target=None, base=None, sim_modes=None, alert_system=None):
         self.drones = drones
         self.obstacles = obstacles or []
         self.target = target
         self.base = base
+        self.sim_modes = sim_modes
+        self.alert_system = alert_system
 
         self.boids = Boids(self.drones)
         self.oai = OAI(self.drones, self.obstacles, CELL_SIZE)
@@ -28,8 +30,6 @@ class MainController:
         if self.target:
             self.missile_manager.set_target(self.target)
 
-        self.sim_modes = sim_modes
-        
         # Apply initial mode settings if provided
         if self.sim_modes:
             self.sim_modes.apply_mode_to_simulation(drones, target)
@@ -41,6 +41,8 @@ class MainController:
         self.speed_control = SpeedControlWidget()
         self.speed_control.speed_changed.connect(self.set_simulation_speed)
         
+        self.mission_complete_alerted = False  # Add this flag
+    
     def set_simulation_speed(self, speed):
         self.simulation_speed = speed
         # Update timer interval based on speed
@@ -133,7 +135,7 @@ class MainController:
             for step in range(1, 10):
                 future_pos = drone.position + drone.velocity * step
                 for obs in self.obstacles:
-                    margin = 25
+                    margin = 60
                     if (obs.x() - margin <= future_pos[0] <= obs.x() + obs.width() + margin and
                         obs.y() - margin <= future_pos[1] <= obs.y() + obs.height() + margin):
                         
@@ -214,24 +216,36 @@ class MainController:
                 waypoint = np.array(drone.current_path[drone.current_waypoint_index])
                 to_waypoint = waypoint - drone.position
                 dist = np.linalg.norm(to_waypoint)
-                # Advance waypoint if close enough
-                if dist < 15:
+                # Advance waypoint if close enough (increase threshold to 25)
+                if dist < 25:
                     drone.current_waypoint_index += 1
                     if drone.current_waypoint_index >= len(drone.current_path):
                         drone.current_path = []
                         drone.current_waypoint_index = 0
-                # Move toward waypoint
+                # Move toward waypoint if path remains
                 if drone.current_waypoint_index < len(drone.current_path):
                     speed = drone.get_current_speed() if hasattr(drone, 'get_current_speed') else 5.0
                     move_vec = (to_waypoint / (dist + 1e-6)) * speed
-                    drone.position += move_vec
+                    drone.velocity = move_vec
+                    drone.position += drone.velocity
                     drone.sync_from_position()
             else:
                 steering = sep * 2 + ali + coh + target_force + avoidance_force
 
             # Apply movement
-            drone.velocity += steering * (0.2 if collision_detected else 0.1)
-            drone.velocity = self.boids.limit_speed(drone.velocity)
+            desired_speed = getattr(drone.movement_config, "speed", 2.0)
+
+            # Combine velocity and steering
+            final_velocity = drone.velocity + steering
+
+            # Always normalize and scale to desired speed
+            norm = np.linalg.norm(final_velocity)
+            if norm > 0:
+                final_velocity = (final_velocity / norm) * desired_speed
+            else:
+                final_velocity = np.zeros(2)
+
+            drone.velocity = final_velocity
             drone.position += drone.velocity
             drone.constrain_to_bounds(WIDTH, HEIGHT)
             drone.sync_from_position()
@@ -309,6 +323,26 @@ class MainController:
             else:
                 drone.state = "attack"
                 self._move_drone_towards_target(drone, self.target)
+        
+        # ALERTS
+        for drone in self.drones:
+            if not drone.alive and not hasattr(drone, '_destruction_alerted'):
+                self.alert_system.show_drone_destroyed_alert(drone.drone_id)
+                drone._destruction_alerted = True
+
+            if drone.missiles_fired >= drone.max_missiles and not hasattr(drone, '_missiles_alerted'):
+                self.alert_system.show_all_missiles_fired_alert(drone.drone_id)
+                drone._missiles_alerted = True
+
+            if hasattr(drone, 'has_landed') and drone.has_landed and not hasattr(drone, '_landing_alerted'):
+                self.alert_system.show_drone_landed_alert(drone.drone_id)
+                drone._landing_alerted = True
+
+        # Mission complete alert (only once)
+        if (all(hasattr(drone, 'has_landed') and drone.has_landed for drone in self.drones) 
+            and not self.mission_complete_alerted):
+            self.alert_system.show_mission_complete_alert(self.drones)
+            self.mission_complete_alerted = True
         
         return {'target_destroyed': False}
 

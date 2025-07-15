@@ -1,145 +1,123 @@
 from PyQt5.QtWidgets import QLabel, QGraphicsOpacityEffect
-from PyQt5.QtCore import QTimer, QPropertyAnimation, QEasingCurve, Qt
+from PyQt5.QtCore import QTimer, Qt, QPropertyAnimation, QEasingCurve
 from PyQt5.QtGui import QFont
-import time
 
 class AlertSystem:
     def __init__(self, parent):
         self.parent = parent
         self.alert_label = None
-        self.fade_animation = None
         self.alert_timer = QTimer()
-        self.alert_timer.setSingleShot(True)
-        self.alert_timer.timeout.connect(self.hide_alert)
+        self.fade_animation = None
+        self.alert_timer.timeout.connect(self.start_fade_out)
         
-        self.create_alert_label()
+    def hide_alert(self):
+        """Hide the current alert immediately"""
+        if hasattr(self, 'alert_label') and self.alert_label is not None:
+            if self.fade_animation:
+                self.fade_animation.stop()
+            self.alert_label.hide()
+            self.alert_label.deleteLater()
+            self.alert_label = None
+        if hasattr(self, 'alert_timer') and self.alert_timer.isActive():
+            self.alert_timer.stop()
 
-    def create_alert_label(self):
-        """Create the alert display label"""
+    def start_fade_out(self):
+        """Start the fade-out animation"""
+        if hasattr(self, 'alert_label') and self.alert_label is not None:
+            # Create opacity effect
+            self.opacity_effect = QGraphicsOpacityEffect()
+            self.alert_label.setGraphicsEffect(self.opacity_effect)
+            
+            # Create fade-out animation
+            self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
+            self.fade_animation.setDuration(800)  # 800ms fade out
+            self.fade_animation.setStartValue(1.0)
+            self.fade_animation.setEndValue(0.0)
+            self.fade_animation.setEasingCurve(QEasingCurve.OutCubic)
+            self.fade_animation.finished.connect(self.on_fade_finished)
+            self.fade_animation.start()
+
+    def on_fade_finished(self):
+        """Called when fade animation is complete"""
+        if hasattr(self, 'alert_label') and self.alert_label is not None:
+            self.alert_label.hide()
+            self.alert_label.deleteLater()
+            self.alert_label = None
+
+    def show_alert(self, text, border_color="#FFD700", duration=3000):
+        """Show a custom alert with fade-in/fade-out animation"""
+        
+        # Hide any existing alert
+        self.hide_alert()
+        
+        # Create a new alert label
         self.alert_label = QLabel(self.parent)
-        self.alert_label.setStyleSheet("""
-            QLabel {
-                background-color: rgba(0, 0, 0, 180);
-                color: white;
-                border: 3px solid #FFD700;
-                border-radius: 10px;
-                padding: 20px;
-                font-size: 18px;
-                font-weight: bold;
-                text-align: center;
-            }
-        """)
+        self.alert_label.setText(text)
         self.alert_label.setAlignment(Qt.AlignCenter)
-        self.alert_label.hide()
-
-    def show_mission_complete_alert(self, drones):
-        """Show mission completion alert with statistics"""
-        total_drones = len(drones)
-        landed_count = sum(1 for drone in drones if hasattr(drone, 'has_landed') and drone.has_landed)
-        destroyed_count = sum(1 for drone in drones if not drone.alive)
-        missiles_fired = sum(drone.missiles_fired for drone in drones)
+        self.alert_label.setWordWrap(True)
         
-        if landed_count == total_drones:
-            alert_text = f"""🎉 MISSION COMPLETE! 🎉
-            
-    ✅ All {total_drones} drones returned safely
-    🚀 {missiles_fired} missiles fired
-    ⭐ Perfect execution!"""
-            border_color = "#00FF00"
-        elif destroyed_count > 0:
-            alert_text = f"""⚠️ MISSION COMPLETE ⚠️
-            
-    ✅ {landed_count} drones returned
-    💥 {destroyed_count} drones lost
-    🚀 {missiles_fired} missiles fired
-    🎯 Objectives achieved with casualties"""
-            border_color = "#FFFF00"
-        else:
-            alert_text = f"""🎯 MISSION COMPLETE 🎯
-            
-    ✅ Objectives achieved
-    🚀 {missiles_fired} missiles fired
-    🚁 {total_drones} drones operational"""
-            border_color = "#4A90E2"
+        # Clean, modern styling without unsupported properties
+        self.alert_label.setStyleSheet(f"""
+            QLabel {{
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
+                    stop:0 rgba(25, 25, 25, 250),
+                    stop:0.5 rgba(35, 35, 35, 250),
+                    stop:1 rgba(15, 15, 15, 250));
+                color: white;
+                border: 4px solid {border_color};
+                border-radius: 25px;
+                padding: 30px;
+                font-size: 20px;
+                font-weight: bold;
+                font-family: 'Segoe UI', 'Arial', sans-serif;
+            }}
+        """)
         
-        self.show_alert(alert_text, border_color, duration=5000)
+        # Position the alert in the center of the parent window
+        parent_rect = self.parent.rect()
+        alert_width = 500
+        alert_height = 150
+        x = (parent_rect.width() - alert_width) // 2
+        y = (parent_rect.height() - alert_height) // 2
+        
+        self.alert_label.setGeometry(x, y, alert_width, alert_height)
+        
+        # Create fade-in effect
+        self.opacity_effect = QGraphicsOpacityEffect()
+        self.alert_label.setGraphicsEffect(self.opacity_effect)
+        self.opacity_effect.setOpacity(0.0)
+        
+        # Show and raise
+        self.alert_label.show()
+        self.alert_label.raise_()
+        
+        # Fade-in animation
+        self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
+        self.fade_animation.setDuration(500)  # Slightly longer fade in
+        self.fade_animation.setStartValue(0.0)
+        self.fade_animation.setEndValue(1.0)
+        self.fade_animation.setEasingCurve(QEasingCurve.OutCubic)
+        self.fade_animation.start()
+        
+        # Start timer to auto-hide (subtract fade-in time)
+        self.alert_timer.start(duration - 500)
 
     def show_drone_destroyed_alert(self, drone_id):
         """Show alert when a drone is destroyed"""
         alert_text = f"💥 DRONE {drone_id} DESTROYED! 💥"
-        self.show_alert(alert_text, "#FF0000", duration=2000)
+        self.show_alert(alert_text, "#E74C3C", duration=3500)  # Red
 
     def show_all_missiles_fired_alert(self, drone_id):
         """Show alert when a drone fires all missiles"""
         alert_text = f"🚀 DRONE {drone_id} - ALL MISSILES FIRED! 🚀"
-        self.show_alert(alert_text, "#FF8C00", duration=1500)
+        self.show_alert(alert_text, "#F39C12", duration=2500)  # Orange
 
     def show_drone_landed_alert(self, drone_id):
-        """Show alert when a drone lands"""
+        """Show alert when a drone lands safely"""
         alert_text = f"🏠 DRONE {drone_id} LANDED SAFELY 🏠"
-        self.show_alert(alert_text, "#00FF00", duration=1500)
+        self.show_alert(alert_text, "#27AE60", duration=2000)  # Green
 
-    def show_alert(self, text, border_color="#FFD700", duration=3000):
-        """Show a custom alert with fade-in/fade-out animation"""
-        self.alert_label.setText(text)
-        self.alert_label.setStyleSheet(f"""
-            QLabel {{
-                background-color: rgba(0, 0, 0, 180);
-                color: white;
-                border: 3px solid {border_color};
-                border-radius: 10px;
-                padding: 20px;
-                font-size: 18px;
-                font-weight: bold;
-                text-align: center;
-            }}
-        """)
-        
-        # Position in center of parent
-        parent_rect = self.parent.rect()
-        self.alert_label.adjustSize()
-        label_rect = self.alert_label.rect()
-        x = (parent_rect.width() - label_rect.width()) // 2
-        y = (parent_rect.height() - label_rect.height()) // 2
-        self.alert_label.move(x, y)
-        
-        # Show with fade-in animation
-        self.alert_label.show()
-        self.fade_in()
-        
-        # Set timer to hide
-        self.alert_timer.start(duration)
-
-    def fade_in(self):
-        """Animate fade-in effect"""
-        self.opacity_effect = QGraphicsOpacityEffect()
-        self.alert_label.setGraphicsEffect(self.opacity_effect)
-        
-        self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
-        self.fade_animation.setDuration(500)
-        self.fade_animation.setStartValue(0.0)
-        self.fade_animation.setEndValue(1.0)
-        self.fade_animation.setEasingCurve(QEasingCurve.InOutQuad)
-        self.fade_animation.start()
-
-    def hide_alert(self):
-        """Hide alert with fade-out animation"""
-        if self.fade_animation:
-            try:
-                self.fade_animation.finished.disconnect()
-            except (TypeError, RuntimeError):
-                # Signal was already disconnected, never connected, or object deleted
-                pass
-    
-        # Create new fade-out animation
-        if hasattr(self, 'opacity_effect') and self.opacity_effect is not None:
-            self.fade_animation = QPropertyAnimation(self.opacity_effect, b"opacity")
-            self.fade_animation.setDuration(500)
-            self.fade_animation.setStartValue(1.0)
-            self.fade_animation.setEndValue(0.0)
-            self.fade_animation.setEasingCurve(QEasingCurve.InOutQuad)
-            self.fade_animation.finished.connect(self.alert_label.hide)
-            self.fade_animation.start()
-        else:
-            # Fallback: hide immediately if no opacity effect
-            self.alert_label.hide()
+    def show_mission_complete_alert(self, drones):
+        """Show alert when mission is complete"""
+        alert_text = "🎯 MISSION COMPLETE! 🎯\nAll drones have returned to base."
+        self.show_alert(alert_text, "#2ECC71", duration=4000)  # Bright Green
