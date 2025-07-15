@@ -178,7 +178,7 @@
 - ~~UI rendering not working~~ *(Fixed with SimulationCanvas)*
 - Perf button doenst work.
 - Stats button doesnt work.
-- Cant change gamemode in the GUI.
+- ~~Cant change gamemode in the GUI.~~
 - Cannot spawn a convour of targets.
 - Cannot load a save. 
 

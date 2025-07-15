@@ -34,13 +34,6 @@ class MissileManager:
                     self.target.position[0] + self.target.width / 2,
                     self.target.position[1] + self.target.height / 2
                 )
-            elif hasattr(self.target, 'x') and hasattr(self.target, 'y'):
-                width = getattr(self.target, 'width', 30)
-                height = getattr(self.target, 'height', 30)
-                target_center = (
-                    self.target.x() + width / 2,
-                    self.target.y() + height / 2
-                )
             else:
                 target_center = target_pos
         else:

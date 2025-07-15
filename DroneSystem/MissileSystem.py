@@ -81,19 +81,17 @@ class Missile:
         self.target_object = None
 
     def update(self, dt: float, drones: List, obstacles: List) -> bool:
-        """Update missile state and return True if still active"""
         if not self.active:
             return False
-            
+
         self.age += dt
-        self.fuel -= dt * 10  # Fuel consumption
-        
-        # Check fuel depletion
+        self.fuel -= dt * 10
+
         if self.fuel <= 0:
             self.explode()
             return False
-            
-        # Update based on state
+
+        # Handle state transitions
         if self.state == MissileState.LAUNCHING:
             self._update_launching(dt)
         elif self.state == MissileState.FLYING:
@@ -102,11 +100,39 @@ class Missile:
             self._update_homing(dt, drones)
         elif self.state == MissileState.EXPLODING:
             self._update_explosion(dt)
-            
-        # Update trail
+        # DESTROYED state does nothing
+
         self._update_trail()
-        
         return self.active
+
+    def _update_standard(self, dt, drones, obstacles):
+        # Straight flight to target center
+        target_center = self._get_target_center()
+        direction = target_center - self.position
+        if np.linalg.norm(direction) > 1:
+            self.velocity = (direction / np.linalg.norm(direction)) * self.config.speed
+        self._apply_movement(dt)
+        self._check_collisions(obstacles)
+        self._check_target_collision()
+
+    def _update_explosive(self, dt, drones, obstacles):
+        # Slower, larger explosion radius, straight flight
+        target_center = self._get_target_center()
+        direction = target_center - self.position
+        if np.linalg.norm(direction) > 1:
+            self.velocity = (direction / np.linalg.norm(direction)) * (self.config.speed * 0.7)
+        self._apply_movement(dt)
+        self._check_collisions(obstacles)
+        self._check_target_collision()
+
+    def _update_piercing(self, dt, drones, obstacles):
+        # Fast, ignores obstacles, straight flight
+        target_center = self._get_target_center()
+        direction = target_center - self.position
+        if np.linalg.norm(direction) > 1:
+            self.velocity = (direction / np.linalg.norm(direction)) * (self.config.speed * 1.2)
+        self._apply_movement(dt)
+        self._check_target_collision()  # Ignores obstacles
 
     def _update_launching(self, dt: float):
         """Handle missile launch phase"""
@@ -157,7 +183,7 @@ class Missile:
         # Find closest target
         closest_target = self._find_closest_target(drones)
         
-        if closest_target:
+        if closest_target is not None:
             direction = closest_target - self.position
             distance = np.linalg.norm(direction)
             

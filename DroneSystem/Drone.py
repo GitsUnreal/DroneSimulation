@@ -32,6 +32,8 @@ class Drone:
         self.has_attacked = False
         self.has_landed = False
 
+        self.state = "idle"  # or "search", "attack", etc.
+
         # Default configurations
         self.movement_config = DroneMovementConfig()
         self.missile_config = None
@@ -179,9 +181,13 @@ class Drone:
         )
 
     def get_missile_spawn_position(self):
-        """Get the position where missiles should spawn from this drone"""
-        return self.get_center_position()
-
-def get_landed_drones_at_base(drones):
-    """Get all drones that are landed at base"""
-    return [drone for drone in drones if hasattr(drone, 'has_landed') and drone.has_landed]
+        """Get alternating spawn position above/below drone"""
+        size = getattr(self, 'size', 20)
+        offset = 5
+        # Alternate above/below based on missiles fired
+        if self.missiles_fired % 2 == 0:
+            # Above
+            return (self.position[0] + size / 2, self.position[1] - offset)
+        else:
+            # Below
+            return (self.position[0] + size / 2, self.position[1] + size + offset)

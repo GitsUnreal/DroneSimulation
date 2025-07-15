@@ -62,7 +62,7 @@ class MainController:
         goal = self.oai.snap_to_grid(goal_pos)
         return self.oai.find_path(self.grid, start, goal, drone)
 
-    def update_drones(self):
+    def update_drones(self, simulation_step=0):
         # Get movement parameters from current mode
         movement_params = self.sim_modes.get_current_handler().get_movement_parameters() if self.sim_modes else {
             'separation_weight': 2.0,
@@ -103,11 +103,18 @@ class MainController:
 
             drone.update_position_sync()
             
+            # Initialize steering to zero vector
+            steering = np.zeros(2)
+
             # Determine target based on drone state
             if hasattr(drone, 'returning_to_base') and drone.returning_to_base:
                 # When returning to base, target the base instead of the mission target
                 target_vec = np.array([self.base.x(), self.base.y()]) - drone.position
                 target_force = (target_vec / (np.linalg.norm(target_vec) + 1e-6)) * 2.0  # Stronger force to base
+            elif drone.state == "search" and hasattr(drone, "search_waypoint"):
+                target_vec = drone.search_waypoint - drone.position
+                distance = np.linalg.norm(target_vec)
+                target_force = (target_vec / (distance + 1e-6)) * 1.5 if distance > 5 else np.zeros(2)
             else:
                 # Normal mission: target the mission objective
                 target_vec = np.array([self.target.position[0], self.target.position[1]]) - drone.position
@@ -207,17 +214,18 @@ class MainController:
                 waypoint = np.array(drone.current_path[drone.current_waypoint_index])
                 to_waypoint = waypoint - drone.position
                 dist = np.linalg.norm(to_waypoint)
-                if dist < 25:
+                # Advance waypoint if close enough
+                if dist < 15:
                     drone.current_waypoint_index += 1
                     if drone.current_waypoint_index >= len(drone.current_path):
                         drone.current_path = []
                         drone.current_waypoint_index = 0
-                        #print(f"Drone {drone.drone_id} completed path.")
+                # Move toward waypoint
                 if drone.current_waypoint_index < len(drone.current_path):
-                    force = (to_waypoint / (dist + 1e-6)) * 2.0
-                    steering = sep * 3 + force * 2 + avoidance_force * 1.5
-                else:
-                    steering = sep * 2 + ali + coh + target_force + avoidance_force
+                    speed = drone.get_current_speed() if hasattr(drone, 'get_current_speed') else 5.0
+                    move_vec = (to_waypoint / (dist + 1e-6)) * speed
+                    drone.position += move_vec
+                    drone.sync_from_position()
             else:
                 steering = sep * 2 + ali + coh + target_force + avoidance_force
 
@@ -290,4 +298,73 @@ class MainController:
                     
                     #print(f"Drone {drone.drone_id} has landed at base (distance: {base_distance:.1f}) and is now hidden.")
         
+        for drone in self.drones:
+            if getattr(drone, "has_attacked", False) or getattr(drone, "missiles_left", 1) == 0:
+                drone.state = "return"
+                self._move_drone_to_base(drone)
+            elif hasattr(self.target, 'hidden') and self.target.hidden and not getattr(self.target, 'spotted_by_radar', False):
+                drone.state = "search"
+                self._move_drone_in_search_pattern(drone, simulation_step)
+                # self._move_drone_in_reconnaissance_pattern(drone, simulation_step)
+            else:
+                drone.state = "attack"
+                self._move_drone_towards_target(drone, self.target)
+        
         return {'target_destroyed': False}
+
+    def _move_drone_in_search_pattern(self, drone, simulation_step):
+        # Initialize search phase if not set
+        if not hasattr(drone, "search_phase"):
+            drone.search_phase = 0
+
+        # Screen center
+        center_screen = np.array([WIDTH / 2, HEIGHT / 2])
+
+        if drone.search_phase == 0:
+            # First phase: fly from base to center of screen
+            drone.search_waypoint = center_screen
+            # Check if drone is close to center
+            if np.linalg.norm(drone.position - center_screen) < 30:
+                drone.search_phase = 1  # Switch to spiral search
+        else:
+            # Spiral search pattern (as waypoint)
+            angle = (drone.drone_id * 45 + simulation_step * 4) % 360
+            radius = 50 + simulation_step * 2 + (drone.drone_id * 10)
+            center = center_screen
+            search_waypoint = center + np.array([
+                radius * np.cos(np.deg2rad(angle)),
+                radius * np.sin(np.deg2rad(angle))
+            ])
+            drone.search_waypoint = search_waypoint  # Store as attribute
+
+    def _move_drone_in_reconnaissance_pattern(self, drone, simulation_step):
+        board_width = 800
+        board_height = 600
+        rows = len(self.drones)
+        row = drone.drone_id % rows
+        sweep_speed = 2
+        x = (simulation_step * sweep_speed) % board_width
+        y = board_height * (row + 1) / (rows + 1)
+        drone.search_waypoint = np.array([x, y])
+
+    def _move_drone_towards_target(self, drone, target):
+        # Move directly toward target center
+        target_center = np.array([target.position[0] + target.width / 2, target.position[1] + target.height / 2])
+        direction = target_center - drone.position
+        if np.linalg.norm(direction) > 1:
+            direction = direction / np.linalg.norm(direction)
+            speed = getattr(drone.movement_config, "speed", 5.0)  # fallback to 5.0 if missing
+            drone.position += direction * speed
+        drone.sync_from_position()
+    
+    def _move_drone_to_base(self, drone):
+        base_pos = np.array([self.base.x(), self.base.y()])
+        direction = base_pos - drone.position
+        if np.linalg.norm(direction) > 1:
+            direction = direction / np.linalg.norm(direction)
+            speed = getattr(drone.movement_config, "speed", 5.0)
+            drone.position += direction * speed
+        drone.sync_from_position()
+
+    def handle_drone_destroyed(self, drone):
+        self.alert_system.show_alert(f"Drone {drone.drone_id} destroyed!", color="red")

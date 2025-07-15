@@ -12,6 +12,7 @@ class SimulationController:
         self.explosion_manager = explosion_manager
         self.screen_flash = screen_flash
         self.target_destroyed_callbacks = []
+        self.simulation_step = 0  # <-- Add this line
     
     def add_target_destroyed_callback(self, callback):
         """Add callback for when target is destroyed"""
@@ -30,7 +31,8 @@ class SimulationController:
         )
         
         # Update drone AI
-        update_result = self.sim_manager.movement_controller.update_drones()
+        update_result = self.sim_manager.movement_controller.update_drones(self.simulation_step)
+        self.simulation_step += 1  # <-- Increment step each update
         
         # Update missiles
         update_missiles(self.sim_manager.drones)

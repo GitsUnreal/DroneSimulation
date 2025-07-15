@@ -28,7 +28,7 @@ class DroneStateManager:
             'missiles_fired': drone.missiles_fired,
             'max_missiles': drone.max_missiles,
             'active_missiles': active_missiles,
-            'text': f"Drone {drone.drone_id}: Missile {drone.missiles_fired}/{drone.max_missiles} fired, {active_missiles} active - {status}"
+            'text': f"Drone {drone.drone_id}: Missile Type: {drone.preferred_missile_type}, Missile Number: {drone.missiles_fired}/{drone.max_missiles} fired, {active_missiles}, active - {status}"
         }
     
     @staticmethod
