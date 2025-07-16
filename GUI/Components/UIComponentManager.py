@@ -40,16 +40,19 @@ class UIComponentManager:
             ('Grid', (50, 25), 'grid_button', 'toggle_grid'),
             ('Paths', (50, 25), 'path_button', 'toggle_paths'),
             ('Debug', (50, 25), 'debug_button', 'toggle_debug'),
-            ('Stats', (50, 25), 'stats_button', 'toggle_statistics'),
-            ('Perf', (50, 25), 'perf_button', 'toggle_performance'),
+            ('Stats', (50, 25), 'stats_button', 'toggle_statistics'),    # This should be here
+            ('Perf', (50, 25), 'perf_button', 'toggle_performance'),     # This should be here
             ('Radar', (50, 25), 'radar_button', 'toggle_radar'),
         ]
         
         buttons = {'start_button': start_button, 'reset_button': reset_button}
         
         for text, size, color_key, callback_key in buttons_config:
-            button = UIComponentManager.create_button(text, size, color_key, callbacks[callback_key])
-            buttons[color_key] = button
+            if callback_key in callbacks:  # Make sure callback exists
+                button = UIComponentManager.create_button(text, size, color_key, callbacks[callback_key])
+                buttons[color_key] = button
+            else:
+                print(f"Warning: Missing callback for {callback_key}")
         
         # Mode selection dropdown
         mode_combo = QComboBox()
@@ -92,3 +95,28 @@ class UIComponentManager:
         """Update button style based on active state"""
         color = SimulationConfig.COLORS['active_button'] if active else SimulationConfig.COLORS[color_key]
         button.setStyleSheet(f"background-color: {color}; font-size: 10px; border-radius: 3px;")
+    
+    @staticmethod
+    def update_missile_status_labels(labels, drones):
+        """Update missile status labels for all drones"""
+        for drone, label in zip(drones, labels):
+            if hasattr(drone, 'has_landed') and drone.has_landed:
+                status = "Landed"
+                color = "gray"
+            elif not drone.alive:
+                status = "Destroyed"
+                color = "red"
+            elif hasattr(drone, 'returning_to_base') and drone.returning_to_base:
+                status = "Returning"
+                color = "orange"
+            elif drone.has_attacked:
+                status = "Mission Complete"
+                color = "blue"
+            else:
+                status = "Active"
+                color = "green"
+            
+            active_missiles = len([m for m in getattr(drone, 'missiles', []) if m.get('active', False)])
+            
+            label.setText(f"Drone {drone.drone_id}: {drone.missiles_fired}/{drone.max_missiles} missiles fired, {active_missiles} active - {status}")
+            label.setStyleSheet(f"font-size: 12px; color: {color}; background-color: rgba(255,255,255,150); padding: 2px; border-radius: 3px;")

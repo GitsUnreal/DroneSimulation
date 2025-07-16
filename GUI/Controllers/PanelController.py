@@ -33,12 +33,14 @@ class PanelController:
             UIComponentManager.update_button_style(
                 self.main_window.buttons['perf_button'], True, 'perf_button'
             )
-        
-        # Force update panel after toggling
-        self.main_window.performance_panel.update_metrics(
-            self.main_window.sim_manager.drones, 
-            self.main_window.sim_manager.movement_controller
-        )
+            # Force update panel after showing
+            self.main_window.performance_panel.update_metrics(
+                self.main_window.sim_manager.drones, 
+                self.main_window.sim_manager.movement_controller
+            )
+            
+            # Force raise the panel to front
+            self.main_window.performance_panel.raise_()
 
     def toggle_statistics_panel(self):
         """Toggle statistics panel visibility"""
@@ -52,12 +54,14 @@ class PanelController:
             UIComponentManager.update_button_style(
                 self.main_window.buttons['stats_button'], True, 'stats_button'
             )
-        
-        # Force update panel after toggling
-        self.main_window.statistics_panel.update_statistics(
-            self.main_window.sim_manager.drones, 
-            self.main_window.sim_manager.movement_controller
-        )
+            # Force update panel after showing
+            self.main_window.statistics_panel.update_statistics(
+                self.main_window.sim_manager.drones, 
+                self.main_window.sim_manager.movement_controller
+            )
+            
+            # Force raise the panel to front
+            self.main_window.statistics_panel.raise_()
 
     def update_all_panels(self):
         """Update all visible panels"""

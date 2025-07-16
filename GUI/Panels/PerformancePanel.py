@@ -71,9 +71,21 @@ class PerformancePanel(QWidget):
 
     def show_panel(self):
         """Show the performance panel"""
-        self.move(self.parent.width() - 270, 50)
-        self.show()
-        self.is_visible = True
+        if self.parent:
+            # Calculate position relative to parent
+            x_pos = self.parent.width() - 270
+            y_pos = 50
+            
+            # Set parent explicitly
+            self.setParent(self.parent)
+            
+            # Move and show
+            self.move(x_pos, y_pos)
+            self.show()
+            self.raise_()  # Bring to front
+            self.is_visible = True
+        else:
+            print("PerformancePanel: No parent set!")
 
     def hide_panel(self):
         """Hide the performance panel"""
