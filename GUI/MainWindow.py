@@ -3,17 +3,17 @@ from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMainWindow
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QPainter, QColor, QPen, QBrush
 
-from GUI.UIComponentManager import UIComponentManager
-from GUI.SimulationManager import SimulationManager
-from GUI.DebugPanel import DebugPanel
-from GUI.StatusChecker import StatusChecker
-from GUI.Renderer import Renderer
-from GUI.PerformancePanel import PerformancePanel
-from GUI.StatisticsPanel import StatisticsPanel
-from GUI.AlertSystem import AlertSystem
-from GUI.MissileRenderer import MissileRenderer
-from GUI.RadarRenderer import RadarRenderer
-from GUI.ExplosionEffects import ExplosionManager, ScreenFlash
+from GUI.Components.UIComponentManager import UIComponentManager
+from GUI.Simulation.SimulationManager import SimulationManager
+from GUI.Panels.DebugPanel import DebugPanel
+from GUI.Simulation.StatusChecker import StatusChecker
+from GUI.Renderer.Renderer import Renderer
+from GUI.Panels.PerformancePanel import PerformancePanel
+from GUI.Panels.StatisticsPanel import StatisticsPanel
+from GUI.System.AlertSystem import AlertSystem
+from GUI.Renderer.MissileRenderer import MissileRenderer
+from GUI.Renderer.RadarRenderer import RadarRenderer
+from GUI.Effects.ExplosionEffects import ExplosionManager, ScreenFlash
 from DroneSystem.SimulationController import SimulationController
 from DroneSystem.DroneStateManager import DroneStateManager
 from DroneSystem.MainController import MainController
