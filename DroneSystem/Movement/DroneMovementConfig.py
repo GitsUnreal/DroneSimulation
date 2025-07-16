@@ -1,5 +1,0 @@
-from dataclasses import dataclass
-
-@dataclass
-class DroneMovementConfig:
-    speed: float = 5.0 

@@ -1,7 +1,6 @@
 from SimMode.ModeHandler import ModeHandler
-from DroneSystem.Core.Drone import DroneMovementMode, DroneMovementConfig
-from DroneSystem.Combat.Weapons.MissileSystem  import MissileType, MissileConfigPresets
-
+from DroneSystem.Drone import DroneMovementMode, DroneMovementConfig
+from DroneSystem.MissileSystem import MissileType, MissileConfigPresets
 
 """
 Patrol mode rules:

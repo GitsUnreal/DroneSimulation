@@ -1,6 +1,6 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QMainWindow, QPushButton, QVBoxLayout
-from GUI.Windows.MainWindow import MainWindow
+from GUI.MainWindow import MainWindow
 
 def main():
     app = QApplication(sys.argv)
