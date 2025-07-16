@@ -1,7 +1,7 @@
 import numpy as np
 
 from DroneSystem.Movement.Navigation.ObstacleAvoidance import OAI
-from DroneSystem.Movement.Behavoirs.Boids import Boids
+from DroneSystem.Movement.Behaviors.Boids import Boids
 from DroneSystem.Combat.Weapons.MissileManager import MissileManager, MissileType
 from GUI.Widgets.SpeedControlWidget import SpeedControlWidget
 

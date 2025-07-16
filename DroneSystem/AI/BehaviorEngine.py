@@ -1,34 +1,39 @@
+from .DecisionTrees import DecisionTrees, DecisionResult
+from .PatternGenerator import PatternGenerator, SearchPattern
+
 class BehaviorEngine:
     def __init__(self, sim_modes):
         self.sim_modes = sim_modes
-    
+        self.decision_trees = DecisionTrees()
+        self.pattern_generator = PatternGenerator()
+        
     def get_drone_behavior(self, drone, target, simulation_step):
         """Determine what behavior a drone should exhibit"""
-        # Check if drone is returning to base
-        if hasattr(drone, 'returning_to_base') and drone.returning_to_base:
+        # Use decision trees for more sophisticated behavior
+        combat_decision = self.decision_trees.make_combat_decision(
+            drone, target, [], []  # Add obstacles and other drones
+        )
+        
+        if combat_decision == DecisionResult.ENGAGE_TARGET:
+            return {
+                'type': 'attack',
+                'target': target,
+                'target_position': (target.position[0], target.position[1]),
+                'movement_params': self._get_attack_movement_params()
+            }
+        elif combat_decision == DecisionResult.RETURN_TO_BASE:
             return {
                 'type': 'return',
                 'target_position': (self.sim_modes.base.x(), self.sim_modes.base.y()),
                 'use_pathfinding': True,
                 'movement_params': self._get_return_movement_params()
             }
-        
-        # Check if target is hidden and needs searching
-        if (hasattr(target, 'hidden') and target.hidden and 
-            not getattr(target, 'spotted_by_radar', False)):
+        else:
             return {
                 'type': 'search',
-                'pattern': self._get_search_pattern(),
+                'pattern': SearchPattern.SPIRAL,
                 'movement_params': self._get_search_movement_params()
             }
-        
-        # Default to attack behavior
-        return {
-            'type': 'attack',
-            'target': target,
-            'target_position': (target.position[0], target.position[1]),
-            'movement_params': self._get_attack_movement_params()
-        }
     
     def _get_search_pattern(self):
         """Get search pattern based on current mode"""
