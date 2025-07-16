@@ -1,0 +1,53 @@
+GUI/
+├── __init__.py
+├── Windows/                        # Main windows and dialogs
+│   ├── __init__.py
+│   ├── MainWindow.py              # Simplified main window (150-200 lines)
+│   ├── WindowManager.py           # Window initialization and setup
+│   ├── UIEventHandler.py          # All UI event callbacks
+│   └── MenuManager.py             # File menu and menu bar management
+├── Controllers/                    # UI-specific controllers
+│   ├── __init__.py
+│   ├── UIController.py            # Main UI coordination
+│   ├── PanelController.py         # Panel visibility and updates
+│   └── SimulationUIController.py  # Simulation-specific UI logic
+├── Panels/                        # Keep existing but improve
+│   ├── __init__.py
+│   ├── DebugPanel.py             # Keep as is
+│   ├── PerformancePanel.py       # Keep as is
+│   ├── StatisticsPanel.py        # Keep as is
+│   ├── ControlPanel.py           # Keep as is
+│   └── PanelManager.py           # Centralized panel management
+├── Components/                    # Keep existing
+│   ├── __init__.py
+│   ├── UIComponentManager.py     # Keep as is
+│   └── StatusDisplay.py          # Extract status display logic
+├── Canvas/                        # Keep existing
+│   ├── __init__.py
+│   └── SimulationCanvas.py       # Keep as is
+├── Renderer/                      # Keep existing structure
+│   ├── __init__.py
+│   ├── Renderer.py               # Keep as is
+│   ├── MissileRenderer.py        # Keep as is
+│   └── RadarRenderer.py          # Keep as is
+├── Widgets/                       # Keep existing
+│   ├── __init__.py
+│   └── SpeedControlWidget.py     # Keep as is
+├── Dialogs/                       # New - for save/load dialogs
+│   ├── __init__.py
+│   ├── SaveDialog.py             # Extract from SaveLoadManager
+│   └── LoadDialog.py             # Extract from SaveLoadManager
+├── Events/                        # New - event handling
+│   ├── __init__.py
+│   ├── UIEvents.py               # UI event definitions
+│   └── EventDispatcher.py       # Event coordination
+├── Simulation/                    # Keep existing
+│   ├── __init__.py
+│   ├── SimulationManager.py      # Keep as is
+│   └── StatusChecker.py          # Keep as is
+├── System/                        # Keep existing
+│   ├── __init__.py
+│   └── AlertSystem.py            # Keep as is
+└── Effects/                       # Keep existing
+    ├── __init__.py
+    └── ExplosionEffects.py       # Keep as is
