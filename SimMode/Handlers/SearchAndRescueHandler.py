@@ -1,6 +1,6 @@
 from SimMode.ModeHandler import ModeHandler
-from DroneSystem.Drone import DroneMovementMode, DroneMovementConfig
-from DroneSystem.MissileSystem import MissileType, MissileConfigPresets
+from DroneSystem.Core.Drone import DroneMovementMode, DroneMovementConfig
+from DroneSystem.Combat.Weapons.MissileSystem  import MissileType, MissileConfigPresets
 
 """
 Search and Rescue mode rules:

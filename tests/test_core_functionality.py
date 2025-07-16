@@ -4,11 +4,11 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Updated imports to match your actual project structure
-from DroneSystem.Drone import Drone
-from DroneSystem.MissileSystem import Missile, MissileType, MissileConfig
-from DroneSystem.ObstacleAvoidance import OAI
+from DroneSystem.Core.Drone import Drone
+from DroneSystem.Missiles.MissileSystem import Missile, MissileType, MissileConfig
+from DroneSystem.Movement.Navigation.ObstacleAvoidance import OAI
 from DroneSystem.MainController import MainController
-from EnemyAI.Target import target
+from EnemySystem.Target import target
 from Utils.SaveLoadManager import SaveLoadManager
 import numpy as np
 
@@ -154,7 +154,7 @@ class TestPerformance(unittest.TestCase):
 class TestExplosionEffects(unittest.TestCase):
     def test_explosion_manager(self):
         """Test explosion effect creation"""
-        from GUI.ExplosionEffects import ExplosionManager
+        from GUI.Effects.ExplosionEffects import ExplosionManager
         
         explosion_manager = ExplosionManager()
         initial_count = len(explosion_manager.explosions)
