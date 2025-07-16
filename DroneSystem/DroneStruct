@@ -1,0 +1,51 @@
+DroneSystem/
+├── __init__.py
+├── Core/                           # Core drone functionality
+│   ├── __init__.py
+│   ├── Drone.py                   # Simplified core drone class
+│   ├── DroneConfig.py             # All drone configurations
+│   ├── DroneFactory.py            # Factory for creating different drone types
+│   └── DroneTypes.py              # Different drone variants
+├── Controllers/                    # Split MainController responsibilities
+│   ├── __init__.py
+│   ├── MainController.py          # Orchestrates other controllers
+│   ├── MovementController.py      # Pure movement logic
+│   ├── CombatController.py        # Combat and attack logic
+│   └── StateController.py         # Drone state management
+├── AI/                            # AI and behavior systems
+│   ├── __init__.py
+│   ├── BehaviorEngine.py          # Main AI decision making
+│   ├── PatternGenerator.py        # Search and movement patterns
+│   ├── MissionPlanner.py          # Mission planning and coordination
+│   └── DecisionTrees.py           # Decision logic for different modes
+├── Movement/                       # Keep existing but reorganized
+│   ├── __init__.py
+│   ├── Behaviors/
+│   │   ├── __init__.py
+│   │   ├── Boids.py              # Keep as is
+│   │   ├── Formation.py          # Formation flying patterns
+│   │   └── Coordination.py       # Multi-drone coordination
+│   ├── Navigation/
+│   │   ├── __init__.py
+│   │   ├── ObstacleAvoidance.py  # Keep as is
+│   │   ├── Pathfinding.py        # Extract from MainController
+│   │   └── WaypointManager.py    # Waypoint navigation
+│   └── DroneMovementConfig.py     # Keep as is
+├── Combat/                         # Rename from Missiles
+│   ├── __init__.py
+│   ├── Weapons/                   # Keep existing structure
+│   │   ├── __init__.py
+│   │   ├── MissileSystem.py      # Keep as is
+│   │   └── MissileManager.py     # Keep as is
+│   ├── Targeting/
+│   │   ├── __init__.py
+│   │   ├── TargetPredictor.py    # Target prediction logic
+│   │   └── AttackStrategies.py   # Different attack approaches
+│   └── CombatConfig.py           # Combat-related configurations
+├── States/                        # Keep existing
+│   ├── __init__.py
+│   ├── DroneStateManager.py      # Keep as is
+│   └── MissionStates.py          # Mission-specific states
+└── Simulation/                    # Keep existing
+    ├── __init__.py
+    └── SimulationController.py   # Keep as is

@@ -1,6 +1,7 @@
 from SimMode.ModeHandler import ModeHandler
-from DroneSystem.Movement.Drone import DroneMovementMode, DroneMovementConfig
-from DroneSystem.Missiles.MissileSystem import MissileType, MissileConfigPresets
+from DroneSystem.Core.Drone import DroneMovementMode, DroneMovementConfig
+from DroneSystem.Combat.Weapons.MissileSystem  import MissileType, MissileConfigPresets
+
 
 """
 Search and Destroy mode rules:
