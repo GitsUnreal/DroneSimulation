@@ -110,11 +110,20 @@ class StatisticsPanel(QWidget):
 
     def show_panel(self):
         """Show the statistics panel"""
-        self.move(20, 50)
-        self.show()
-        self.is_visible = True
-        if self.mission_start_time is None:
-            self.mission_start_time = time.time()
+        if self.parent:
+            # Set parent explicitly
+            self.setParent(self.parent)
+            
+            # Move and show
+            self.move(20, 50)
+            self.show()
+            self.raise_()  # Bring to front
+            self.is_visible = True
+            
+            if self.mission_start_time is None:
+                self.mission_start_time = time.time()
+        else:
+            print("StatisticsPanel: No parent set!")
 
     def hide_panel(self):
         """Hide the statistics panel"""

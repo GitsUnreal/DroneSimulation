@@ -21,6 +21,7 @@ from SimMode.Modes import SimModes, Modes
 from Factory.TargetFactory import TargetFactory
 from Utils.SaveLoadManager import SaveLoadManager
 from GUI.Canvas.SimulationCanvas import SimulationCanvas
+from GUI.Controllers.PanelController import PanelController
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -53,12 +54,14 @@ class MainWindow(QMainWindow):
         self.explosion_manager = ExplosionManager()
         self.screen_flash = ScreenFlash()
         
-        # UI panels
+        # UI panels - Make sure they get the main window as parent
         self.debug_panel = DebugPanel(self)
         self.performance_panel = PerformancePanel(self)
         self.statistics_panel = StatisticsPanel(self)
         self.alert_system = AlertSystem(self)
         self.status_checker = StatusChecker()
+        
+        self.panel_controller = PanelController(self)
         
         # Simulation controller
         self.simulation_controller = SimulationController(
@@ -122,8 +125,8 @@ class MainWindow(QMainWindow):
             'toggle_grid': self.toggle_grid,
             'toggle_paths': self.toggle_paths,
             'toggle_debug': self.toggle_debug,
-            'toggle_statistics': self.toggle_statistics,
-            'toggle_performance': self.toggle_performance,
+            'toggle_statistics': self.panel_controller.toggle_statistics_panel,  # Use PanelController
+            'toggle_performance': self.panel_controller.toggle_performance_panel,  # Use PanelController
             'toggle_radar': self.toggle_radar,
             'change_mode': self.change_mode,
             'change_radar_speed': self.change_radar_speed
@@ -245,26 +248,6 @@ class MainWindow(QMainWindow):
     def toggle_radar(self):
         radar_enabled = self.radar_renderer.toggle_radar()
         UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button')
-
-    def toggle_performance(self):
-        if self.performance_panel.is_visible:
-            self.performance_panel.hide_panel()
-            UIComponentManager.update_button_style(self.buttons['perf_button'], False, 'perf_button')
-        else:
-            self.performance_panel.show_panel()
-            UIComponentManager.update_button_style(self.buttons['perf_button'], True, 'perf_button')
-        # Force update panel after toggling
-        self.performance_panel.update_metrics(self.sim_manager.drones, self.sim_manager.movement_controller)
-
-    def toggle_statistics(self):
-        if self.statistics_panel.is_visible:
-            self.statistics_panel.hide_panel()
-            UIComponentManager.update_button_style(self.buttons['stats_button'], False, 'stats_button')
-        else:
-            self.statistics_panel.show_panel()
-            UIComponentManager.update_button_style(self.buttons['stats_button'], True, 'stats_button')
-        # Force update panel after toggling
-        self.statistics_panel.update_statistics(self.sim_manager.drones, self.sim_manager.movement_controller)
 
     def reset_simulation(self):
         # Clear existing labels
