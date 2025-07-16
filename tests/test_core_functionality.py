@@ -4,9 +4,9 @@ import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Updated imports to match your actual project structure
-from DroneSystem.Drone import Drone
-from DroneSystem.MissileSystem import Missile, MissileType, MissileConfig
-from DroneSystem.ObstacleAvoidance import OAI
+from DroneSystem.Movement.Drone import Drone
+from DroneSystem.Missiles.MissileSystem import Missile, MissileType, MissileConfig
+from DroneSystem.Movement.ObstacleAvoidance import OAI
 from DroneSystem.MainController import MainController
 from EnemySystem.Target import target
 from Utils.SaveLoadManager import SaveLoadManager

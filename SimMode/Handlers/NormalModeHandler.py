@@ -1,6 +1,6 @@
 from SimMode.ModeHandler import ModeHandler
-from DroneSystem.Drone import DroneMovementMode, DroneMovementConfig
-from DroneSystem.MissileSystem import MissileType, MissileConfigPresets
+from DroneSystem.Movement.Drone import DroneMovementMode, DroneMovementConfig
+from DroneSystem.Missiles.MissileSystem import MissileType, MissileConfigPresets
 
 """
 Normal mode rules:

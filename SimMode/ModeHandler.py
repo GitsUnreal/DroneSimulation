@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
-from DroneSystem.Drone import DroneMovementConfig
-from DroneSystem.MissileSystem import MissileConfig
+from DroneSystem.Movement.Drone import DroneMovementConfig
+from DroneSystem.Missiles.MissileSystem import MissileConfig
 
 class ModeHandler(ABC):
     """Base interface for all simulation mode handlers"""

@@ -1,4 +1,4 @@
-from DroneSystem.DroneStateManager import DroneStateManager
+from DroneSystem.States.DroneStateManager import DroneStateManager
 from GUI.Objects.MissileGUI import update_missiles
 from Config.SimulationConfig import SimulationConfig
 

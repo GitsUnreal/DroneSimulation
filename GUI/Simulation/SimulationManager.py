@@ -1,7 +1,7 @@
 import random
 import numpy as np
 from PyQt5.QtCore import QRect
-from DroneSystem.Drone import Drone
+from DroneSystem.Movement.Drone import Drone
 from DroneSystem.MainController import MainController
 from GUI.Objects.Obstacle import Obstacle
 from Factory.TargetFactory import TargetFactory

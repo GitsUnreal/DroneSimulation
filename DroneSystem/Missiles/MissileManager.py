@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
 from .MissileSystem import Missile, MissileType, MissileConfig
-from .ObstacleAvoidance import OAI
+from DroneSystem.Movement.ObstacleAvoidance import OAI
 
 class MissileManager:
     def __init__(self, oai: OAI, grid: dict):
