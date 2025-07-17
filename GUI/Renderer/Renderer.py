@@ -42,12 +42,16 @@ class Renderer:
         
         for i, drone in enumerate(drones):
             # Skip landed drones
-            if (hasattr(drone, 'has_landed') and drone.has_landed) or not drone.alive or not hasattr(drone, 'current_path') or not drone.current_path:
+            if (hasattr(drone, 'has_landed') and drone.has_landed) or not drone.alive:
+                continue
+                
+            # Check if drone has a current path
+            if not hasattr(drone, 'current_path') or not drone.current_path:
                 continue
             
             color = colors[i % len(colors)]
-            painter.setPen(color)
-            painter.setBrush(color)
+            painter.setPen(QPen(color, 2))
+            painter.setBrush(QBrush(color))
             
             # Draw path waypoints
             for j, waypoint in enumerate(drone.current_path):
@@ -55,23 +59,23 @@ class Renderer:
                 adjusted_y = y + offset_y
                 
                 # Different marker for current waypoint
-                if j == drone.current_waypoint_index:
+                if j == getattr(drone, 'current_waypoint_index', 0):
                     painter.drawEllipse(x - 4, adjusted_y - 4, 8, 8)  # Larger circle
                 else:
                     painter.drawEllipse(x - 2, adjusted_y - 2, 4, 4)  # Small circle
             
             # Draw lines connecting waypoints
-            painter.setPen(QColor(color.red(), color.green(), color.blue(), 150))
+            painter.setPen(QPen(QColor(color.red(), color.green(), color.blue(), 150), 1))
             for j in range(len(drone.current_path) - 1):
                 x1, y1 = drone.current_path[j]
                 x2, y2 = drone.current_path[j + 1]
                 painter.drawLine(x1, y1 + offset_y, x2, y2 + offset_y)
             
             # Draw line from drone to current waypoint
-            if drone.current_waypoint_index < len(drone.current_path):
+            if hasattr(drone, 'current_waypoint_index') and drone.current_waypoint_index < len(drone.current_path):
                 wx, wy = drone.current_path[drone.current_waypoint_index]
-                painter.setPen(QColor(color.red(), color.green(), color.blue(), 200))
-                painter.drawLine(int(drone.x), int(drone.y) + offset_y, wx, wy + offset_y)
+                painter.setPen(QPen(QColor(color.red(), color.green(), color.blue(), 200), 2))
+                painter.drawLine(int(drone.position[0]), int(drone.position[1]) + offset_y, wx, wy + offset_y)
 
     def draw_drone_with_status(self, painter, drone, offset_y, drone_size):
         """Draw drone with status icons - but skip landed drones"""
@@ -145,46 +149,66 @@ class Renderer:
 
     def draw_static_elements(self, painter, offset_y, obstacles, target, base):
         """Draw obstacles, target, and base"""
-        # Draw obstacles first
-        painter.setBrush(QColor(200, 50, 50))
-        painter.setPen(QPen(QColor(0, 0, 0), 1))
         
-        for obs in obstacles:
-            if not obs.is_hidden:
-                if hasattr(obs, 'rect'):
-                    adjusted = QRect(obs.rect.x(), obs.rect.y() + offset_y, obs.rect.width(), obs.rect.height())
-                else:
-                    adjusted = QRect(obs.x(), obs.y() + offset_y, obs.width(), obs.height())
-                painter.drawRect(adjusted)
-
-        # Helper function to check if a target should be drawn
-        def should_draw_target(t):
-            """Check if target should be visible based on mode and spotted status"""
+        # Draw obstacles - FIXED
+        if obstacles:
+            painter.setBrush(QBrush(QColor(139, 69, 19)))  # Brown
+            painter.setPen(QPen(QColor(100, 50, 0), 2))
             
-            # CHECK IF TARGET WAS SPOTTED BY RADAR (highest priority)
-            if hasattr(t, 'spotted_by_radar') and t.spotted_by_radar:
-                return True
-            
-            # Check mode handler preference
-            if hasattr(self, 'sim_modes') and self.sim_modes:
-                mode_allows = self.sim_modes.get_current_handler().should_show_target()
-                if mode_allows:
+            for i, obstacle in enumerate(obstacles):
+                try:
+                    if hasattr(obstacle, 'x') and hasattr(obstacle, 'y'):
+                        # QRect-like obstacle
+                        obs_rect = QRect(
+                            obstacle.x(),
+                            obstacle.y() + offset_y,
+                            obstacle.width(),
+                            obstacle.height()
+                        )
+                        painter.drawRect(obs_rect)
+                    elif hasattr(obstacle, 'position') and hasattr(obstacle, 'size'):
+                        # Custom obstacle object
+                        x, y = obstacle.position
+                        w, h = obstacle.size if hasattr(obstacle.size, '__len__') else (obstacle.size, obstacle.size)
+                        obs_rect = QRect(int(x), int(y) + offset_y, int(w), int(h))
+                        painter.drawRect(obs_rect)
+                    else:
+                        # Fallback
+                        obs_rect = QRect(100 + i * 60, 100 + offset_y, 40, 40)
+                        painter.drawRect(obs_rect)
+                        
+                except Exception as e:
+                    print(f"Error drawing obstacle {i}: {e}")
+                    # Fallback drawing
+                    obs_rect = QRect(100 + i * 60, 100 + offset_y, 40, 40)
+                    painter.drawRect(obs_rect)
+        
+        # Draw target - FIXED
+        if target:
+            def should_draw_target(t):
+                """Check if target should be visible based on mode and spotted status"""
+                
+                # CHECK IF TARGET WAS SPOTTED BY RADAR (highest priority)
+                if hasattr(t, 'spotted_by_radar') and t.spotted_by_radar:
                     return True
-            else:
-                print("DEBUG: No sim_modes available")
+                
+                # Check mode handler preference
+                if hasattr(self, 'sim_modes') and self.sim_modes:
+                    mode_allows = self.sim_modes.get_current_handler().should_show_target()
+                    if mode_allows:
+                        return True
+                
+                # Check if target is specifically hidden (and not spotted)
+                hidden_status = getattr(t, 'hidden', False)
+                spotted_status = getattr(t, 'spotted_by_radar', False)
+                
+                if hidden_status and not spotted_status:
+                    return False
+                
+                return True  # Default to visible
             
-            # Check if target is specifically hidden (and not spotted)
-            hidden_status = getattr(t, 'hidden', False)
-            spotted_status = getattr(t, 'spotted_by_radar', False)
-            
-            if hidden_status and not spotted_status:
-                return False
-            
-            return True  # Default to showing target
-
-        # Handle both single target and list of targets
-        targets_to_draw = []
-        if target is not None:
+            # Handle multiple targets or single target
+            targets_to_draw = []
             try:
                 # Check if iterable (multiple targets)
                 iter(target)
@@ -195,77 +219,56 @@ class Renderer:
             except TypeError:
                 # Single target
                 targets_to_draw = [target]
-        else:
-            print("DEBUG: Target is None")
-        # Draw all valid targets
-        for i, single_target in enumerate(targets_to_draw):
             
-            if not should_draw_target(single_target):
-                continue  # Skip hidden targets
-            
-            
-            # Draw the target with different colors based on status
-            if getattr(single_target, 'spotted_by_radar', False):
-                # Spotted target - keep it green but with a slight highlight
-                painter.setBrush(QColor(50, 255, 50))  # Brighter green for spotted target
-                painter.setPen(QPen(QColor(255, 255, 0), 2))  # Yellow border for spotted
-            else:
-                # Normal target - regular green
-                painter.setBrush(QColor(50, 200, 50))  # Regular green for target
-                painter.setPen(QPen(QColor(0, 0, 0), 2))    # Black border
-            
-            # Handle different position formats
-            if hasattr(single_target, 'position') and hasattr(single_target, 'width') and hasattr(single_target, 'height'):
-                target_adj = QRect(
-                    int(single_target.position[0]), 
-                    int(single_target.position[1]) + offset_y, 
-                    single_target.width, 
-                    single_target.height
-                )
-            elif hasattr(single_target, 'x') and hasattr(single_target, 'y'):
-                target_adj = QRect(
-                    single_target.x(), 
-                    single_target.y() + offset_y, 
-                    getattr(single_target, 'width', 30), 
-                    getattr(single_target, 'height', 30)
-                )
-            else:
-                continue  # Skip if we can't determine position
-            
-            painter.drawRect(target_adj)
-            
-            # Check if target is destroyed and add destroyed visual
-            if hasattr(single_target, 'destroyed') and single_target.destroyed:
-                # Draw "DESTROYED" text above target
-                painter.setPen(QPen(QColor(255, 0, 0), 2))
-                painter.setFont(QFont("Arial", 12, QFont.Bold))
-                painter.drawText(
-                    target_adj.x() - 10, 
-                    target_adj.y() - 10, 
-                    "DESTROYED"
-                )
+            # Draw all valid targets
+            for i, single_target in enumerate(targets_to_draw):
                 
-                # Draw X over destroyed target
-                painter.setPen(QPen(QColor(255, 0, 0), 4))
-                painter.drawLine(
-                    target_adj.topLeft(), 
-                    target_adj.bottomRight()
-                )
-                painter.drawLine(
-                    target_adj.topRight(), 
-                    target_adj.bottomLeft()
-                )
+                if not should_draw_target(single_target):
+                    continue  # Skip hidden targets
                 
-                # Make target semi-transparent
-                painter.setBrush(QColor(100, 100, 100, 128))
+                # Draw the target with different colors based on status
+                if getattr(single_target, 'spotted_by_radar', False):
+                    # Spotted target - keep it green but with a slight highlight
+                    painter.setBrush(QColor(50, 255, 50))  # Brighter green for spotted target
+                    painter.setPen(QPen(QColor(0, 200, 0), 3))
+                elif getattr(single_target, 'is_destroyed', lambda: False)():
+                    # Destroyed target
+                    painter.setBrush(QColor(100, 100, 100))  # Gray
+                    painter.setPen(QPen(QColor(50, 50, 50), 2))
+                else:
+                    # Normal target
+                    painter.setBrush(QColor(255, 0, 0))  # Red
+                    painter.setPen(QPen(QColor(200, 0, 0), 3))
+                
+                # Determine target position and size
+                if hasattr(single_target, 'position') and hasattr(single_target, 'width') and hasattr(single_target, 'height'):
+                    target_adj = QRect(
+                        int(single_target.position[0]), 
+                        int(single_target.position[1]) + offset_y, 
+                        getattr(single_target, 'width', 30), 
+                        getattr(single_target, 'height', 30)
+                    )
+                elif hasattr(single_target, 'x') and hasattr(single_target, 'y'):
+                    target_adj = QRect(
+                        single_target.x(), 
+                        single_target.y() + offset_y, 
+                        getattr(single_target, 'width', 30), 
+                        getattr(single_target, 'height', 30)
+                    )
+                else:
+                    continue  # Skip if we can't determine position
+                
                 painter.drawRect(target_adj)
-            
-
-        # Draw base (always visible)
-        painter.setBrush(QColor(0, 0, 0))
-        painter.setPen(QPen(QColor(255, 255, 255), 1))
-        base_adj = QRect(base.x(), base.y() + offset_y, base.width(), base.height())
-        painter.drawRect(base_adj)
+        
+        # Draw base - EXISTING CODE WORKS
+        if base:
+            painter.setBrush(QBrush(QColor(0, 255, 0)))  # Green
+            painter.setPen(QPen(QColor(0, 100, 0), 2))
+            if hasattr(base, 'x') and hasattr(base, 'y'):
+                base_rect = QRect(base.x(), base.y() + offset_y, base.width(), base.height())
+            else:
+                base_rect = QRect(50, 50 + offset_y, 40, 40)  # Fallback
+            painter.drawRect(base_rect)
 
     def draw_missiles(self, painter, offset_y, drones):
         """Draw all missiles"""

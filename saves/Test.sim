@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "version": "1.0",
+    "saved_at": "2025-07-16T12:00:00",
+    "drone_count": 4,
+    "scenario_created": true,
+    "mission_type": "search_and_destroy",
+    "mission_name": "Custom Mission"
+  },
+  "config": {
+    "grid_size": 20,
+    "mode": "search_and_destroy",
+    "simulation_speed": 1.0,
+    "map_width": 1080,
+    "map_height": 720
+  },
+  "drones": [
+    {
+      "drone_id": 0,
+      "position": [
+        100,
+        120
+      ],
+      "max_missiles": 2,
+      "formation_role": "assault",
+      "alive": true,
+      "has_attacked": false
+    },
+    {
+      "drone_id": 1,
+      "position": [
+        220,
+        80
+      ],
+      "max_missiles": 2,
+      "formation_role": "assault",
+      "alive": true,
+      "has_attacked": false
+    },
+    {
+      "drone_id": 2,
+      "position": [
+        240,
+        160
+      ],
+      "max_missiles": 2,
+      "formation_role": "assault",
+      "alive": true,
+      "has_attacked": false
+    },
+    {
+      "drone_id": 3,
+      "position": [
+        120,
+        160
+      ],
+      "max_missiles": 2,
+      "formation_role": "assault",
+      "alive": true,
+      "has_attacked": false
+    }
+  ],
+  "targets": [
+    {
+      "position": [
+        740,
+        560
+      ],
+      "target_type": "standard",
+      "health": 100,
+      "movement_pattern": "stationary",
+      "hidden": false
+    }
+  ],
+  "obstacles": [],
+  "bases": [
+    {
+      "position": [
+        60,
+        40
+      ],
+      "capacity": 10
+    }
+  ],
+  "simulation_state": {
+    "running": false,
+    "step": 0,
+    "mission_complete": false
+  }
+}

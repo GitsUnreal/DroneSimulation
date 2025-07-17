@@ -5,6 +5,7 @@ from SimMode.Handlers.ReconnaissanceHandler import ReconnaissanceModeHandler
 from SimMode.Handlers.PatrolHandler import PatrolModeHandler
 from SimMode.Handlers.BombingRunHandler import BombingRunModeHandler
 from SimMode.Handlers.SearchAndRescueHandler import SearchAndRescueRunModeHandler
+from SimMode.Handlers.EscortHandler import EscortModeHandler
 
 
 class Modes(Enum):
@@ -15,9 +16,11 @@ class Modes(Enum):
     NORMAL = "normal"
     SEARCH_AND_DESTROY = "search_and_destroy"
     RECONNAISSANCE = "reconnaissance"
+    ESCORT = "escort"
     PATROL = "patrol"
-    SEARCH_AND_RESCUE = "search_and_rescue"
+    DEFENSIVE = "defensive"
     BOMBING_RUN = "bombing_run"
+    SEARCH_AND_RESCUE = "search_and_rescue"
 
 class SimModes:
     """
@@ -29,6 +32,7 @@ class SimModes:
             Modes.NORMAL: NormalModeHandler(),
             Modes.SEARCH_AND_DESTROY: SearchAndDestroyModeHandler(),
             Modes.RECONNAISSANCE: ReconnaissanceModeHandler(),
+            Modes.ESCORT: EscortModeHandler(),
             Modes.PATROL: PatrolModeHandler(),
             Modes.SEARCH_AND_RESCUE: SearchAndRescueRunModeHandler(),
             Modes.BOMBING_RUN: BombingRunModeHandler(),
@@ -58,5 +62,10 @@ class SimModes:
         """
         Apply current mode settings to simulation objects
         """
-        self.current_handler.configure_drones(drones)
-        self.current_handler.configure_target(target)
+        # Configure drones
+        for drone in drones:
+            self.current_handler.configure_drone(drone)
+        
+        # Configure target only if it exists
+        if target is not None:
+            self.current_handler.configure_target(target)

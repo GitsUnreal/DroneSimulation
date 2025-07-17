@@ -18,11 +18,44 @@ class SimulationManager:
         self.movement_controller = None
 
     def init_default_simulation(self, num_drones=None):
-        """Initialize simulation with default parameters"""
+        """Initialize default simulation with drones, obstacles, target, and base"""
+        # Clear existing elements
+        self.drones.clear()
+        self.obstacles.clear()
+        
+        # Use parameter or fallback to config default
         if num_drones is None:
             num_drones = SimulationConfig.DEFAULT_DRONES
         
-        self.init_simulation(num_drones)
+        # Create drones
+        for i in range(num_drones):
+            start_x = 50 + (i * 40)
+            start_y = 100 + (i % 2) * 40
+            drone = Drone(position=[start_x, start_y], velocity=[0, 0], drone_id=i)
+            self.drones.append(drone)
+        
+        # Create obstacles using factory
+        from Factory.ObstacleFactory import ObstacleFactory
+        num_obstacles = getattr(SimulationConfig, 'DEFAULT_OBSTACLES', 6)
+        
+        self.obstacles = ObstacleFactory.create_obstacle_field(
+            count=num_obstacles,
+            width=SimulationConfig.WINDOW_WIDTH,
+            height=SimulationConfig.WINDOW_HEIGHT
+        )
+        
+        # Create target
+        self.target = TargetFactory.create_random_target(self.obstacles)
+        
+        # Create base
+        self.base = QRect(
+            SimulationConfig.BASE_POSITION[0], 
+            SimulationConfig.BASE_POSITION[1], 
+            SimulationConfig.BASE_SIZE, 
+            SimulationConfig.BASE_SIZE
+        )
+        
+        print(f"Initialized simulation: {len(self.drones)} drones, {len(self.obstacles)} obstacles")
 
     def init_simulation(self, num_drones=2):
         """Initialize simulation objects and controller."""
@@ -136,3 +169,24 @@ class SimulationManager:
                             direction /= np.linalg.norm(direction)
                             drone.position += direction * 2
                             other.position -= direction * 2
+
+    def get_drone_count(self):
+        """Get current number of drones in simulation"""
+        return len(self.drones)
+
+    def set_drone_count(self, count):
+        """Dynamically adjust drone count"""
+        current_count = len(self.drones)
+        
+        if count > current_count:
+            # Add more drones
+            for i in range(current_count, count):
+                start_x = 50 + (i * 40)
+                start_y = 100 + (i % 2) * 40
+                drone = Drone(position=[start_x, start_y], velocity=[0, 0], drone_id=i)
+                self.drones.append(drone)
+        elif count < current_count:
+            # Remove excess drones
+            self.drones = self.drones[:count]
+        
+        print(f"Drone count adjusted to: {len(self.drones)}")
