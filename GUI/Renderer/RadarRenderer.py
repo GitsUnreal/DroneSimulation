@@ -6,7 +6,7 @@ import numpy as np
 class RadarRenderer:
     def __init__(self):
         self.radar_enabled = False
-        self.sweep_speed = "normal"
+        self.sweep_speed = 2  # Initialize as NUMERIC VALUE, not string
         self.radar_angle = 0
         self.radar_radius = 200
         self.sweep_width = 50  # degrees
@@ -24,20 +24,28 @@ class RadarRenderer:
         self.radar_enabled = enabled
 
     def set_sweep_speed(self, speed: str):
-        self.sweep_speed = speed
         """
         Set the radar sweep speed based on predefined modes.
         Available modes: 'slow', 'normal', 'fast', 'very_fast', 'ultra_fast'.
         If an invalid mode is provided, no change is made.
         """
         if speed in self.sweep_modes:
-            self.sweep_speed = self.sweep_modes[speed]
+            self.sweep_speed = self.sweep_modes[speed]  # This sets the NUMERIC value
             print(f"Radar sweep speed set to {speed} ({self.sweep_speed} degrees per update)")
+        else:
+            print(f"Invalid speed mode: {speed}. Using default 'normal'.")
+            self.sweep_speed = self.sweep_modes['normal']  # Set numeric value, not string
 
     def update_radar(self, obstacles, target, drones):
         """Update radar sweep and detect obstacles from ALL active drones"""
         if not self.radar_enabled:
             return []
+        
+        # DEBUG: Check sweep_speed type
+        if not isinstance(self.sweep_speed, (int, float)):
+            print(f"ERROR: sweep_speed is {type(self.sweep_speed)}: {self.sweep_speed}")
+            # Force it to be numeric
+            self.sweep_speed = 2
         
         visible_obstacles = []
         
@@ -50,31 +58,54 @@ class RadarRenderer:
         if not active_drones:
             return []
         
-        # Check obstacles against ALL active drones
-        for obs in obstacles:
-            obs_pos = np.array([obs.x() + obs.width()/2, obs.y() + obs.height()/2])
-            
-            # Check if obstacle is detected by ANY active drone
-            detected_by_any_drone = False
-            
-            for drone in active_drones:
-                radar_center = drone.position
-                
-                # Calculate distance from this drone's radar center
-                distance = np.linalg.norm(obs_pos - radar_center)
-                
-                if distance <= self.radar_radius:
-                    # Calculate angle to obstacle from this drone
-                    angle_to_obs = self.get_angle_to_position(radar_center, obs_pos)
+        # Check obstacles against ALL active drones (handle empty obstacles list)
+        if obstacles:  # Only process if obstacles exist
+            for obs in obstacles:
+                # Handle different obstacle types
+                try:
+                    if hasattr(obs, 'x') and hasattr(obs, 'y'):
+                        # QRect-like obstacle
+                        obs_pos = np.array([obs.x() + obs.width()/2, obs.y() + obs.height()/2])
+                    elif hasattr(obs, 'position') and hasattr(obs, 'size'):
+                        # Custom obstacle
+                        x, y = obs.position
+                        size = obs.size if hasattr(obs.size, '__len__') else (obs.size, obs.size)
+                        obs_pos = np.array([x + size[0]/2, y + size[1]/2])
+                    else:
+                        continue  # Skip unknown obstacle types
                     
-                    # Check if obstacle is within sweep angle for this drone
-                    if self.is_in_sweep(angle_to_obs):
-                        if not detected_by_any_drone:  # Only #print once per obstacle
-                            visible_obstacles.append(obs_pos)
-                            obs.is_spotted(obs_pos, self.radar_radius)
-                            #print(f"Radar detected obstacle at ({obs.x()}, {obs.y()}) by drone {drone.drone_id} - distance: {distance:.1f}")
-                        detected_by_any_drone = True
-                        break  # Stop checking other drones for this obstacle
+                    # Check if obstacle is detected by ANY active drone
+                    detected_by_any_drone = False
+                    
+                    for drone in active_drones:
+                        radar_center = drone.position
+                        
+                        # Calculate distance from this drone's radar center
+                        distance = np.linalg.norm(obs_pos - radar_center)
+                        
+                        if distance <= self.radar_radius:
+                            # Calculate angle to obstacle from this drone
+                            angle_to_obs = self.get_angle_to_position(radar_center, obs_pos)
+                            
+                            # Check if obstacle is within sweep angle for this drone
+                            if self.is_in_sweep(angle_to_obs):
+                                if not detected_by_any_drone:  # Only process once per obstacle
+                                    visible_obstacles.append(obs_pos)
+                                    
+                                    # Mark obstacle as spotted
+                                    if hasattr(obs, 'is_spotted'):
+                                        obs.is_spotted(obs_pos, self.radar_radius)
+                                    else:
+                                        # Set spotted flag for simple obstacles
+                                        obs.spotted_by_radar = True
+                                    
+                                    print(f"Radar detected obstacle at ({obs_pos[0]:.1f}, {obs_pos[1]:.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                                detected_by_any_drone = True
+                                break  # Stop checking other drones for this obstacle
+                
+                except Exception as e:
+                    print(f"Error processing obstacle in radar: {e}")
+                    continue
         
         # Handle both single target and multiple targets
         targets_to_check = []
@@ -99,51 +130,60 @@ class RadarRenderer:
             if not enemy:
                 continue
                 
-            # Handle different position formats
-            if hasattr(enemy, 'position') and hasattr(enemy, 'width') and hasattr(enemy, 'height'):
-                # Target with position array and width/height
-                enemy_pos = np.array([enemy.position[0] + enemy.width/2, enemy.position[1] + enemy.height/2])
-            elif hasattr(enemy, 'x') and hasattr(enemy, 'y') and hasattr(enemy, 'width') and hasattr(enemy, 'height'):
-                # Target with x(),y() methods
-                enemy_pos = np.array([enemy.x() + enemy.width()/2, enemy.y() + enemy.height()/2])
-            else:
-                # Skip if we can't determine position
+            try:
+                # Handle different position formats
+                if hasattr(enemy, 'position') and hasattr(enemy, 'width') and hasattr(enemy, 'height'):
+                    # Target with position array and width/height
+                    enemy_pos = np.array([enemy.position[0] + enemy.width/2, enemy.position[1] + enemy.height/2])
+                elif hasattr(enemy, 'x') and hasattr(enemy, 'y') and hasattr(enemy, 'width') and hasattr(enemy, 'height'):
+                    # Target with x(),y() methods
+                    enemy_pos = np.array([enemy.x() + enemy.width()/2, enemy.y() + enemy.height()/2])
+                else:
+                    # Skip if we can't determine position
+                    continue
+
+                detected_by_any_drone = False
+
+                for drone in active_drones:
+                    radar_center = drone.position
+
+                    # Calculate distance from this drone's radar center
+                    distance = np.linalg.norm(enemy_pos - radar_center)
+
+                    if distance <= self.radar_radius:
+                        # Calculate angle to enemy from this drone
+                        angle_to_enemy = self.get_angle_to_position(radar_center, enemy_pos)
+
+                        # Check if enemy is within sweep angle for this drone
+                        if self.is_in_sweep(angle_to_enemy):
+                            if not detected_by_any_drone:
+                                visible_obstacles.append(enemy_pos)
+                                
+                                # MARK TARGET AS SPOTTED BY RADAR
+                                enemy.spotted_by_radar = True
+                                
+                                if hasattr(enemy, 'is_spotted'):
+                                    enemy.is_spotted(enemy_pos, self.radar_radius)
+                                
+                                print(f"🎯 RADAR SPOTTED TARGET at ({enemy_pos[0]:.1f}, {enemy_pos[1]:.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
+                            detected_by_any_drone = True
+                            break  # Stop checking other drones for this enemy
+            
+            except Exception as e:
+                print(f"Error processing target in radar: {e}")
                 continue
 
-            detected_by_any_drone = False
-
-            for drone in active_drones:
-                radar_center = drone.position
-
-                # Calculate distance from this drone's radar center
-                distance = np.linalg.norm(enemy_pos - radar_center)
-
-                if distance <= self.radar_radius:
-                    # Calculate angle to enemy from this drone
-                    angle_to_enemy = self.get_angle_to_position(radar_center, enemy_pos)
-
-                    # Check if enemy is within sweep angle for this drone
-                    if self.is_in_sweep(angle_to_enemy):
-                        if not detected_by_any_drone:
-                            visible_obstacles.append(enemy_pos)
-                            
-                            # MARK TARGET AS SPOTTED BY RADAR
-                            enemy.spotted_by_radar = True
-                            
-                            if hasattr(enemy, 'is_spotted'):
-                                enemy.is_spotted(enemy_pos, self.radar_radius)
-                            
-                            # Handle different position access methods for logging
-                            # if hasattr(enemy, 'position'):
-                            #     print(f"🎯 RADAR SPOTTED TARGET at ({enemy.position[0]:.1f}, {enemy.position[1]:.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
-                            # else:
-                            #     print(f"🎯 RADAR SPOTTED TARGET at ({enemy.x():.1f}, {enemy.y():.1f}) by drone {drone.drone_id} - distance: {distance:.1f}")
-                        detected_by_any_drone = True
-                        break  # Stop checking other drones for this enemy
-
-        
         # Advance radar sweep
-        self.radar_angle = (self.radar_angle + self.sweep_speed) % 360
+        try:
+            self.radar_angle = (self.radar_angle + self.sweep_speed) % 360
+        except TypeError as e:
+            print(f"Type error in radar angle calculation: {e}")
+            print(f"radar_angle type: {type(self.radar_angle)}, value: {self.radar_angle}")
+            print(f"sweep_speed type: {type(self.sweep_speed)}, value: {self.sweep_speed}")
+            # Force numeric values
+            self.radar_angle = int(self.radar_angle) if isinstance(self.radar_angle, (int, float, str)) else 0
+            self.sweep_speed = 2
+            self.radar_angle = (self.radar_angle + self.sweep_speed) % 360
         
         return visible_obstacles
     
@@ -198,32 +238,58 @@ class RadarRenderer:
         # Draw detected obstacles (only once, not per drone)
         self.draw_detected_obstacles(painter, obstacles, offset_y)
 
-    def draw_radar_sweep(self, painter, center):
-        """Draw the rotating radar sweep"""
-        # Calculate sweep start and end angles
-        start_angle = self.radar_angle - self.sweep_width / 2
-        end_angle = self.radar_angle + self.sweep_width / 2
+    def render_radar(self, painter, drones, target):
+        """Render radar sweeps for drones"""
+        if not drones:
+            return
+            
+        try:
+            for drone in drones:
+                if hasattr(drone, 'radar') and drone.radar and hasattr(drone.radar, 'active') and drone.radar.active:
+                    self.draw_radar_sweep(painter, drone)
+        except Exception as e:
+            print(f"Error in render_radar: {e}")
+    
+    def draw_radar_sweep(self, painter, radar_center):
+        """Draw radar sweep line - FIXED to prevent artifacts"""
+        if not self.radar_enabled:
+            return
         
-        # Create sweep polygon
-        points = [QPoint(center[0], center[1])]  # Center point
+        # Calculate sweep line end point
+        sweep_angle_rad = math.radians(self.radar_angle)
+        end_x = radar_center[0] + self.radar_radius * math.cos(sweep_angle_rad)
+        end_y = radar_center[1] + self.radar_radius * math.sin(sweep_angle_rad)
         
-        # Add arc points
-        for angle in range(int(start_angle), int(end_angle) + 1, 2):
-            x = center[0] + self.radar_radius * math.cos(math.radians(angle))
-            y = center[1] + self.radar_radius * math.sin(math.radians(angle))
-            points.append(QPoint(int(x), int(y)))
+        # Draw main sweep line
+        painter.setPen(QPen(QColor(0, 255, 0, 200), 2))
+        painter.drawLine(
+            int(radar_center[0]),
+            int(radar_center[1]),
+            int(end_x),
+            int(end_y)
+        )
         
-        # Draw sweep
-        polygon = QPolygon(points)
-        painter.setPen(QPen(QColor(0, 255, 0, 150), 1))
-        painter.setBrush(QBrush(QColor(0, 255, 0, 60)))
-        painter.drawPolygon(polygon)
+        # Draw sweep sector (arc) - SIMPLIFIED to prevent artifacts
+        sweep_width_half = self.sweep_width / 2
         
-        # Draw sweep line
-        sweep_end_x = center[0] + self.radar_radius * math.cos(math.radians(self.radar_angle))
-        sweep_end_y = center[1] + self.radar_radius * math.sin(math.radians(self.radar_angle))
-        painter.setPen(QPen(QColor(0, 255, 0, 200), 3))
-        painter.drawLine(center[0], center[1], int(sweep_end_x), int(sweep_end_y))
+        # Calculate multiple lines for the sweep sector instead of using drawPie
+        num_lines = 5  # Number of lines in the sweep
+        for i in range(num_lines):
+            line_angle = self.radar_angle - sweep_width_half + (i * self.sweep_width / (num_lines - 1))
+            line_angle_rad = math.radians(line_angle)
+            
+            line_end_x = radar_center[0] + self.radar_radius * math.cos(line_angle_rad)
+            line_end_y = radar_center[1] + self.radar_radius * math.sin(line_angle_rad)
+            
+            # Draw fading sweep lines
+            alpha = 100 - (i * 15)  # Fading effect
+            painter.setPen(QPen(QColor(0, 255, 0, alpha), 1))
+            painter.drawLine(
+                int(radar_center[0]),
+                int(radar_center[1]),
+                int(line_end_x),
+                int(line_end_y)
+            )
     
     def draw_detected_obstacles(self, painter, obstacles, offset_y):
         """Draw obstacles that have been detected (updated to not need radar_center)"""

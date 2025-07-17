@@ -27,11 +27,14 @@ class EscortModeHandler(ModeHandler):
             drone.max_missiles = 4  # Light armament for quick response
             drone.preferred_missile_type = MissileType.STANDARD
             drone.missile_config = MissileConfigPresets.STANDARD.value
-            
-            # Set escort-specific properties
-            drone.escort_range = 100  # How close to stay to VIP
-            drone.threat_engagement_range = 150  # Only engage threats within this range
-            drone.formation_priority = True  # Prioritize formation over individual targets
+
+    def configure_drone(self, drone):
+        """Configure individual drone for escort mode"""
+        movement_config = DroneMovementMode.STANDARD.value
+        drone.apply_movement_config(movement_config)
+        drone.max_missiles = 4
+        drone.preferred_missile_type = MissileType.STANDARD
+        drone.missile_config = MissileConfigPresets.STANDARD.value
 
     def configure_target(self, target):
         # In escort missions, the "target" is actually the VIP/convoy to protect
@@ -47,15 +50,17 @@ class EscortModeHandler(ModeHandler):
             target.hidden = False  # Always visible
             target.is_vip = True  # Mark as VIP
             target.needs_escort = True
-    
+
     def get_movement_parameters(self):
+        """Return movement parameters for escort mode"""
         return DroneMovementMode.STANDARD.value.__dict__
-    
+
     def get_missile_parameters(self):
+        """Return missile parameters for escort mode"""
         return MissileConfigPresets.STANDARD.value.__dict__
-    
+
     def should_show_target(self):
-        return True  # Always show the VIP/convoy being escorted
+        return True  # Always show the VIP/escort target
     
     def get_formation_type(self):
         """Get the preferred formation for escort missions"""

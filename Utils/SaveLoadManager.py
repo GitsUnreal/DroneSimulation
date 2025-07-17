@@ -112,46 +112,19 @@ class SaveLoadManager:
             QMessageBox.critical(None, "Error", f"Failed to save simulation: {str(e)}")
             return False
 
-    def load_simulation(self, filename=None):
-        """Load simulation from scenario format"""
-        if not filename:
-            filename, _ = QFileDialog.getOpenFileName(
-                None, 
-                "Load Simulation", 
-                self.default_save_dir,
-                "Scenario Files (*.scenario);;All Files (*)"  # Use scenario format
-            )
-            if not filename:
-                return False
-        else:
-            if not os.path.isabs(filename):
-                filename = os.path.join(self.default_save_dir, filename)
-            
-        if not os.path.exists(filename):
-            QMessageBox.warning(None, "File Not Found", f"File {filename} does not exist")
-            return False
-            
+    def load_simulation(self, filename):
+        """Load simulation from file"""
         try:
             with open(filename, 'r') as f:
-                scenario_data = json.load(f)
-        
-            # This will be handled by the MainWindow's apply_scenario_to_simulation method
-            # For now, just show what would be loaded
-            metadata = scenario_data.get('metadata', {})
-            items = scenario_data.get('items', [])
+                data = json.load(f)            
+            # Remove debug prints
+            print(f"Loading simulation from {filename}")
+            print(f"Data keys: {data.keys()}")
             
-            drone_count = len([item for item in items if item['type'] == 'drone'])
-            target_count = len([item for item in items if item['type'] == 'target'])
-            
-            QMessageBox.information(None, "Load Info", 
-                f"Loaded scenario: {metadata.get('name', 'Unknown')}\n"
-                f"Drones: {drone_count}, Targets: {target_count}")
-            
-            return True
-            
+            return data
         except Exception as e:
-            QMessageBox.critical(None, "Error", f"Failed to load simulation: {str(e)}")
-            return False
+            print(f"Error loading simulation: {e}")  # Remove debug print
+            raise e
 
     def get_save_files(self):
         """Get list of available save files"""

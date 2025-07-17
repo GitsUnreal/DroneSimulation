@@ -23,6 +23,7 @@ from DroneSystem.MainController import MainController
 from Config.SimulationConfig import SimulationConfig
 from SimMode.Modes import SimModes, Modes
 from Factory.TargetFactory import TargetFactory
+from Factory.ObstacleFactory import ObstacleFactory
 from Utils.SaveLoadManager import SaveLoadManager
 from GUI.Canvas.SimulationCanvas import SimulationCanvas
 from GUI.Controllers.PanelController import PanelController
@@ -45,19 +46,26 @@ class MainWindow(QMainWindow):
         self.setStyleSheet("background-color: #f0f0f0;")
 
     def _init_components(self):
-        """Initialize all components"""
-        # Core components
+        """Initialize all GUI components"""
+        # Initialize simulation manager FIRST
         self.sim_manager = SimulationManager()
-        self.sim_modes = SimModes()
-        self.sim_modes.set_mode(Modes.NORMAL)
         
-        # Rendering components
-        self.renderer = Renderer()
-        self.renderer.sim_modes = self.sim_modes
-        self.missile_renderer = MissileRenderer()
-        self.radar_renderer = RadarRenderer()
+        # Initialize simulation modes
+        self.sim_modes = SimModes()
+        
+        # Initialize effects systems
         self.explosion_manager = ExplosionManager()
         self.screen_flash = ScreenFlash()
+        
+        # Initialize renderers and managers
+        self.renderer = Renderer()
+        self.missile_renderer = MissileRenderer()
+        self.radar_renderer = RadarRenderer()
+        
+        # ALWAYS ENABLE RADAR - no button control needed
+        self.radar_renderer.enable_radar(True)
+        self.radar_renderer.radar_enabled = True
+        print("Radar is always enabled")
         
         # UI panels - Make sure they get the main window as parent
         self.debug_panel = DebugPanel(self)
@@ -68,7 +76,7 @@ class MainWindow(QMainWindow):
         
         self.panel_controller = PanelController(self)
         
-        # Simulation controller
+        # Simulation controller - NOW we can use sim_manager
         self.simulation_controller = SimulationController(
             self.sim_manager, self.radar_renderer, self.status_checker,
             self.explosion_manager, self.screen_flash
@@ -163,7 +171,6 @@ class MainWindow(QMainWindow):
             'toggle_debug': self.toggle_debug,
             'toggle_statistics': self.panel_controller.toggle_statistics_panel,
             'toggle_performance': self.panel_controller.toggle_performance_panel,
-            'toggle_radar': self.toggle_radar,
             'change_mode': self.change_mode,
             'change_radar_speed': self.change_radar_speed,
             'launch_scenario_editor': self.launch_scenario_editor
@@ -292,12 +299,39 @@ class MainWindow(QMainWindow):
             self.buttons['start_button'].setText("Start Simulation")
 
     def toggle_grid(self):
-        self.show_grid = not self.show_grid
-        UIComponentManager.update_button_style(self.buttons['grid_button'], self.show_grid, 'grid_button')
+        """Toggle grid display"""
+        if hasattr(self.canvas, 'show_grid'):
+            self.canvas.show_grid = not self.canvas.show_grid
+        else:
+            self.canvas.show_grid = True
+        
+        # Update button style to show active state
+        if hasattr(self, 'buttons') and 'grid_button' in self.buttons:
+            UIComponentManager.update_button_style(
+                self.buttons['grid_button'], 
+                self.canvas.show_grid, 
+                'grid_button'
+            )
+        
+        print(f"Grid toggled: {self.canvas.show_grid}")
+        self.canvas.update()
 
     def toggle_paths(self):
-        self.show_paths = not self.show_paths
-        UIComponentManager.update_button_style(self.buttons['path_button'], self.show_paths, 'path_button')
+        """Toggle path display"""
+        if hasattr(self.canvas, 'show_paths'):
+            self.canvas.show_paths = not self.canvas.show_paths
+        else:
+            self.canvas.show_paths = True
+        
+        # Update button style to show active state
+        if hasattr(self, 'buttons') and 'paths_button' in self.buttons:
+            UIComponentManager.update_button_style(
+                self.buttons['paths_button'], 
+                self.canvas.show_paths, 
+                'paths_button'
+            )
+        
+        self.canvas.update()
 
     def toggle_debug(self):
         self.show_debug = not self.show_debug
@@ -307,10 +341,6 @@ class MainWindow(QMainWindow):
             self.debug_panel.create_panel()
         else:
             self.debug_panel.hide_panel()
-
-    def toggle_radar(self):
-        radar_enabled = self.radar_renderer.toggle_radar()
-        UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button')
 
     def reset_simulation(self):
         """Reset simulation to clean state"""
@@ -352,53 +382,56 @@ class MainWindow(QMainWindow):
             print(f"Error in reset_simulation: {e}")
 
     def change_mode(self, mode_text):
-        for mode in Modes:
-            if mode.value == mode_text:
+        """Handle mode changes"""
+        try:
+            # Map GUI text to mode enum
+            mode_mapping = {
+                "Normal": Modes.NORMAL,
+                "Search and Destroy": Modes.SEARCH_AND_DESTROY,
+                "Escort": Modes.ESCORT,
+                "Reconnaissance": Modes.RECONNAISSANCE,
+                "Defensive": Modes.DEFENSIVE,
+                "Bombing Run": Modes.BOMBING_RUN,
+                "Patrol": Modes.PATROL,
+                "Search and Rescue": Modes.SEARCH_AND_RESCUE
+            }
+            
+            mode = mode_mapping.get(mode_text, Modes.NORMAL)
+            
+            if self.sim_modes:
+                # Change to the new mode
                 self.sim_modes.set_mode(mode)
-                # Recreate movement controller with new mode
-                self.movement_controller = MainController(
-                    self.sim_manager.drones,
-                    self.sim_manager.obstacles,
-                    self.sim_manager.target,
-                    self.sim_manager.base,
-                    self.sim_modes,
-                    alert_system=self.alert_system  # <-- ADD THIS LINE
-                )
-                self.sim_manager.movement_controller = self.movement_controller
-                # Apply mode rules to drones and target
-                self.sim_modes.apply_mode_to_simulation(self.sim_manager.drones, self.sim_manager.target)
-                # Update missile status labels
-                for label in self.missile_status_labels:
-                    label.deleteLater()
-                self.missile_status_labels = UIComponentManager.create_missile_status_labels(
-                    self.sim_manager.drones, self.missile_status_layout
-                )
-
-                # --- Mode-specific UI and logic ---
                 handler = self.sim_modes.get_current_handler()
-                # Radar logic - UPDATED WITH ESCORT
-                radar_modes = {
-                    "normal_mode": (False, "normal"),
-                    "search_and_destroy": (True, "fast"),
-                    "escort": (True, "normal"),  # Fixed: escort mode uses radar for threat detection
-                    "reconnaissance": (True, "slow"),
-                    "defensive": (True, "normal"),
-                    "bombing_run": (True, "fast"),
-                    "patrol": (True, "normal"),
-                    "search_and_rescue": (True, "fast"),
+                
+                print(f"Switched to mode: {mode_text} ({mode.value})")
+                
+                # Configure drones for the new mode
+                if self.sim_manager and self.sim_manager.drones:
+                    handler.configure_drones(self.sim_manager.drones)
+                
+                # Configure target for the new mode
+                if self.sim_manager and self.sim_manager.target:
+                    handler.configure_target(self.sim_manager.target)
+                
+                # Radar is ALWAYS enabled - just set sweep speed based on mode
+                radar_speeds = {
+                    "normal_mode": "normal",
+                    "search_and_destroy": "fast",
+                    "escort": "normal",
+                    "reconnaissance": "slow",
+                    "defensive": "normal",
+                    "bombing_run": "fast",
+                    "patrol": "normal",
+                    "search_and_rescue": "fast",
                 }
                 mode_key = getattr(handler, "mode_name", mode.value)
-                radar_enabled, sweep_speed = radar_modes.get(mode_key, (False, "normal"))
-                self.radar_renderer.enable_radar(radar_enabled)
-                UIComponentManager.update_button_style(self.buttons['radar_button'], radar_enabled, 'radar_button')
+                sweep_speed = radar_speeds.get(mode_key, "normal")
                 self.radar_renderer.set_sweep_speed(sweep_speed)
-
-                # Target visibility logic
-                # This is handled in Renderer.draw_static_elements using should_show_target and spotted_by_radar
-                # But you may want to force update here if needed
-
-                self._update_panels()
-                break
+                
+                print(f"Radar sweep speed set to: {sweep_speed}")
+        
+        except Exception as e:
+            print(f"Error in change_mode: {e}")
 
     def change_radar_speed(self, speed_text):
         """Handle radar speed changes"""
@@ -622,77 +655,88 @@ class MainWindow(QMainWindow):
                         print(f"Created drone {drone_count-1} at position {position}")
                         
                     elif item_type == 'target':
-                        # Create target with error handling - FIXED TARGET POSITION
+                        # Create target with correct position - FIXED
                         try:
                             from EnemySystem.Target import Target
                             
-                            # Ensure position is [x, y] format
                             target_x = float(position[0])
                             target_y = float(position[1])
                             
-                            target = Target(target_x, target_y)
-                            
-                            # CRITICAL FIX: Ensure position is stored as numpy array with correct format
-                            import numpy as np
-                            target.position = np.array([target_x, target_y], dtype=float)
-                            
-                            print(f"Created target at position {target.position} (type: {type(target.position)})")
-                            
-                        except ImportError:
-                            from EnemySystem.Target import target as Target
-                            target_x = float(position[0])
-                            target_y = float(position[1])
-                            target = Target(target_x, target_y)
-                            
-                            # CRITICAL FIX: Ensure position is stored as numpy array with correct format
-                            import numpy as np
-                            target.position = np.array([target_x, target_y], dtype=float)
-                            
-                            print(f"Created target at position {target.position} (type: {type(target.position)})")
-                        
-                        # Set target properties safely
-                        if hasattr(target, 'health'):
-                            target.health = properties.get('health', 100)
-                        if hasattr(target, 'hidden'):
-                            target.hidden = properties.get('hidden', False)
-                        
-                        # Mark as VIP for escort missions
-                        if mission_type == 'escort':
-                            target.is_vip = True
-                            target.needs_escort = True
-                        
-                        self.sim_manager.target = target
-                        print(f"Created target at position [{target_x}, {target_y}]")
-                        
-                    elif item_type == 'obstacle':
-                        # Create obstacle with error handling
-                        try:
-                            from Factory.ObstacleFactory import ObstacleFactory
-                            obstacle = ObstacleFactory.create_obstacle(
-                                float(position[0]), float(position[1]), 
-                                properties.get('size', 40)
+                            target = Target(
+                                target_id=1, 
+                                position=[target_x, target_y],
+                                height=properties.get('height', 30),
+                                width=properties.get('width', 30),
+                                hidden=properties.get('hidden', False)
                             )
+                            
+                            # Set additional properties
+                            target.target_type = properties.get('target_type', 'standard')
+                            target.health = properties.get('health', 100)
+                            target.movement_pattern = properties.get('movement_pattern', 'stationary')
+                            
+                            # Set mission-specific properties
+                            if mission_type == 'escort':
+                                target.is_vip = True
+                                target.needs_escort = True
+                            
+                            self.sim_manager.target = target
+                            print(f"Created target at position [{target_x}, {target_y}]")
+                            
+                        except Exception as e:
+                            print(f"Error creating target: {e}")
+                            
+                    elif item_type == 'obstacle':
+                        # Create obstacle - ENHANCED WITH BETTER ERROR HANDLING
+                        try:
+                            from PyQt5.QtCore import QRect
+                            
+                            obs_x = int(float(position[0]))
+                            obs_y = int(float(position[1]))
+                            
+                            # Get size properties with fallbacks
+                            obs_width = properties.get('width', properties.get('size', 40))
+                            obs_height = properties.get('height', properties.get('size', 40))
+                            
+                            # Ensure minimum size
+                            obs_width = max(int(obs_width), 20)
+                            obs_height = max(int(obs_height), 20)
+                            
+                            # Create QRect obstacle
+                            obstacle = QRect(obs_x, obs_y, obs_width, obs_height)
+                            
                             self.sim_manager.obstacles.append(obstacle)
-                            print(f"Created obstacle at position {position}")
+                            print(f"Created obstacle at position [{obs_x}, {obs_y}] size {obs_width}x{obs_height}")
+                            
                         except Exception as e:
                             print(f"Error creating obstacle: {e}")
+                            # Create fallback obstacle
+                            fallback_obs = QRect(300 + len(self.sim_manager.obstacles) * 60, 300, 40, 40)
+                            self.sim_manager.obstacles.append(fallback_obs)
+                            print("Created fallback obstacle")
                             
                     elif item_type == 'base':
-                        # Update base position with error handling - FIX TYPE CONVERSION
+                        # Update base position - FIXED TO USE ACTUAL POSITION
                         try:
+                            from PyQt5.QtCore import QRect
+                            
                             base_x = int(float(position[0]))
                             base_y = int(float(position[1]))
-                            base_size = properties.get('size', SimulationConfig.BASE_SIZE)
+                            base_capacity = properties.get('capacity', 10)
                             
-                            # Update base position and size
-                            self.sim_manager.base.setX(base_x)
-                            self.sim_manager.base.setY(base_y)
-                            self.sim_manager.base.setWidth(base_size)
-                            self.sim_manager.base.setHeight(base_size)
+                            # Use capacity to determine base size (minimum 20x20)
+                            base_size = max(base_capacity, 20)
                             
-                            print(f"Set base position to [{base_x}, {base_y}] with size {base_size}")
+                            # Create new base at specified position
+                            self.sim_manager.base = QRect(base_x, base_y, base_size, base_size)
+                            print(f"Created base at position [{base_x}, {base_y}] with size {base_size}x{base_size}")
+                            
                         except Exception as e:
-                            print(f"Error setting base position: {e}")
+                            print(f"Error updating base position: {e}")
+                            # Keep existing base or create default
+                            if self.sim_manager.base is None:
+                                self.sim_manager.base = QRect(50, 50, 20, 20)
+                                print("Created fallback base at default position")
                 
                 except Exception as e:
                     print(f"Error processing item {item}: {e}")
@@ -880,13 +924,22 @@ class MainWindow(QMainWindow):
                 with open(filename, 'r') as f:
                     data = json.load(f)
                 
-                # Check format and convert if needed
-                if 'metadata' in data and 'drones' in data and 'config' in data:
+                print(f"Loading file: {filename}")
+                print(f"File structure keys: {list(data.keys())}")
+                
+                # Check format and handle appropriately
+                if 'metadata' in data and 'items' in data:
+                    # It's already scenario format
+                    print("Detected scenario format")
+                    scenario_data = data
+                elif 'drones' in data and 'config' in data:
                     # It's a .sim file - convert to scenario format
+                    print("Detected .sim format - converting...")
                     scenario_data = self.convert_sim_to_scenario(data)
                 else:
-                    # It's already scenario format
-                    scenario_data = data
+                    # Try to detect format by content
+                    print("Unknown format - attempting to parse...")
+                    scenario_data = self.parse_unknown_format(data)
                 
                 # Apply the scenario to simulation
                 self.apply_scenario_to_simulation(scenario_data)
@@ -894,67 +947,227 @@ class MainWindow(QMainWindow):
                 QMessageBox.information(self, "Success", f"Simulation loaded: {filename}")
                 
             except Exception as e:
+                print(f"Error loading file: {e}")
+                import traceback
+                traceback.print_exc()
                 QMessageBox.critical(self, "Error", f"Failed to load simulation: {str(e)}")
 
     def convert_sim_to_scenario(self, sim_data):
-        """Convert .sim format to .scenario format"""
+        """Convert .sim file format to scenario format"""
+        try:
+            # Extract metadata and config
+            metadata = sim_data.get('metadata', {})
+            config = sim_data.get('config', {})
+            
+            # Create scenario format
+            scenario_data = {
+                'metadata': {
+                    'name': metadata.get('mission_name', 'Converted Simulation'),
+                    'mission_type': metadata.get('mission_type', 'search_and_destroy'),
+                    'difficulty': 'Normal',
+                    'time_limit': 300,
+                    'map_width': config.get('map_width', 1080),
+                    'map_height': config.get('map_height', 720),
+                    'grid_size': config.get('grid_size', 20)
+                },
+                'items': []
+            }
+            
+            # Convert drones
+            for drone_data in sim_data.get('drones', []):
+                scenario_data['items'].append({
+                    'type': 'drone',
+                    'position': drone_data.get('position', [100, 100]),
+                    'properties': {
+                        'drone_id': drone_data.get('drone_id', 0),
+                        'max_missiles': drone_data.get('max_missiles', 2),
+                        'formation_role': drone_data.get('formation_role', 'assault')
+                    }
+                })
+            
+            # Convert targets
+            for target_data in sim_data.get('targets', []):
+                scenario_data['items'].append({
+                    'type': 'target',
+                    'position': target_data.get('position', [500, 500]),
+                    'properties': {
+                        'target_type': target_data.get('target_type', 'standard'),
+                        'health': target_data.get('health', 100),
+                        'hidden': target_data.get('hidden', False)
+                    }
+                })
+            
+            # Convert obstacles - FIXED TO HANDLE DIFFERENT FORMATS
+            for obs_data in sim_data.get('obstacles', []):
+                try:
+                    # Handle different obstacle data formats
+                    if isinstance(obs_data, dict):
+                        # Dictionary format with position and properties
+                        pos = obs_data.get('position', [400, 300])
+                        size = obs_data.get('size', 40)
+                        width = obs_data.get('width', size)
+                        height = obs_data.get('height', size)
+                    elif isinstance(obs_data, (list, tuple)) and len(obs_data) >= 2:
+                        # Array format [x, y] or [x, y, size]
+                        pos = [obs_data[0], obs_data[1]]
+                        size = obs_data[2] if len(obs_data) > 2 else 40
+                        width = height = size
+                    else:
+                        # Unknown format - create default
+                        pos = [400 + len(scenario_data['items']) * 60, 300]
+                        width = height = 40
+                    
+                    scenario_data['items'].append({
+                        'type': 'obstacle',
+                        'position': pos,
+                        'properties': {
+                            'size': max(width, height),  # Use larger dimension
+                            'width': int(width),
+                            'height': int(height),
+                            'destructible': False
+                        }
+                    })
+                    print(f"Converted obstacle: pos={pos}, size={width}x{height}")
+                    
+                except Exception as e:
+                    print(f"Error converting obstacle: {e}")
+                    # Create a fallback obstacle
+                    fallback_obs = {
+                        'type': 'obstacle',
+                        'position': [400 + len(scenario_data['items']) * 60, 300],
+                        'properties': {
+                            'size': 40,
+                            'width': 40,
+                            'height': 40,
+                            'destructible': False
+                        }
+                    }
+                    scenario_data['items'].append(fallback_obs)
+            
+            # Convert bases - FIXED TO HANDLE BOTH SINGLE AND ARRAY FORMATS
+            bases_data = sim_data.get('bases', [])
+            if bases_data:
+                # Handle both single base object and array of bases
+                if isinstance(bases_data, dict):
+                    # Single base object
+                    base_pos = bases_data.get('position', [50, 50])
+                    capacity = bases_data.get('capacity', 10)
+                elif isinstance(bases_data, list) and len(bases_data) > 0:
+                    # Array of bases - use first one
+                    first_base = bases_data[0]
+                    base_pos = first_base.get('position', [50, 50])
+                    capacity = first_base.get('capacity', 10)
+                else:
+                    # Fallback
+                    base_pos = [50, 50]
+                    capacity = 10
+                
+                scenario_data['items'].append({
+                    'type': 'base',
+                    'position': base_pos,
+                    'properties': {
+                        'capacity': capacity
+                    }
+                })
+                print(f"Converted base: pos={base_pos}, capacity={capacity}")
+            else:
+                # No base data found - create default
+                scenario_data['items'].append({
+                    'type': 'base',
+                    'position': [50, 50],
+                    'properties': {
+                        'capacity': 10
+                    }
+                })
+                print("No base data found - created default base")
+            
+            return scenario_data
+        
+        except Exception as e:
+            print(f"Error converting sim to scenario: {e}")
+            import traceback
+            traceback.print_exc()
+            return {}
+
+    def parse_unknown_format(self, data):
+        """Try to parse unknown file format"""
         scenario_data = {
             'metadata': {
-                'name': sim_data['metadata'].get('mission_name', 'Converted Scenario'),
-                'mission_type': sim_data['metadata'].get('mission_type', 'search_and_destroy'),
+                'name': 'Unknown Format Conversion',
+                'mission_type': 'search_and_destroy',
                 'difficulty': 'Normal',
                 'time_limit': 300,
-                'map_width': sim_data['config'].get('map_width', 1080),
-                'map_height': sim_data['config'].get('map_height', 720),
-                'grid_size': sim_data['config'].get('grid_size', 20)
+                'map_width': 1080,
+                'map_height': 720,
+                'grid_size': 20
             },
             'items': []
         }
         
-        # Convert drones
-        for drone in sim_data.get('drones', []):
-            scenario_data['items'].append({
-                'type': 'drone',
-                'position': drone['position'],
-                'properties': {
-                    'drone_id': drone['drone_id'],
-                    'max_missiles': drone.get('max_missiles', 2),
-                    'formation_role': drone.get('formation_role', 'assault')
-                }
-            })
+        # Look for common keys and convert
+        if 'drones' in data:
+            for drone in data['drones']:
+                scenario_data['items'].append({
+                    'type': 'drone',
+                    'position': drone.get('position', [100, 100]),
+                    'properties': {
+                        'drone_id': drone.get('drone_id', 0),
+                        'max_missiles': drone.get('max_missiles', 2),
+                        'formation_role': 'assault'
+                    }
+                })
         
-        # Convert targets
-        for target in sim_data.get('targets', []):
-            scenario_data['items'].append({
-                'type': 'target',
-                'position': target['position'],
-                'properties': {
-                    'target_type': target.get('target_type', 'standard'),
-                    'health': target.get('health', 100),
-                    'hidden': target.get('hidden', False)
-                }
-            })
+        if 'targets' in data:
+            for target in data['targets']:
+                scenario_data['items'].append({
+                    'type': 'target',
+                    'position': target.get('position', [500, 500]),
+                    'properties': {
+                        'target_type': target.get('target_type', 'standard'),
+                        'health': target.get('health', 100),
+                        'hidden': target.get('hidden', False)
+                    }
+                })
         
-        # Convert obstacles
-        for obstacle in sim_data.get('obstacles', []):
-            scenario_data['items'].append({
-                'type': 'obstacle',
-                'position': obstacle['position'],
-                'properties': {
-                    'size': obstacle.get('size', 40),
-                    'destructible': obstacle.get('destructible', False)
-                }
-            })
+        # Try different obstacle formats
+        if 'obstacles' in data:
+            print(f"Found obstacles in data: {data['obstacles']}")
+            for i, obs in enumerate(data['obstacles']):
+                print(f"Processing obstacle {i}: {obs}")
+                
+                # Handle different obstacle formats
+                if isinstance(obs, dict):
+                    # Dictionary format
+                    pos = obs.get('position', [300 + i*60, 300])
+                    size = obs.get('size', 40)
+                elif isinstance(obs, list) and len(obs) >= 2:
+                    # List format [x, y] or [x, y, size]
+                    pos = [obs[0], obs[1]]
+                    size = obs[2] if len(obs) > 2 else 40
+                else:
+                    # Unknown format - create default
+                    pos = [300 + i*60, 300]
+                    size = 40
+                
+                scenario_data['items'].append({
+                    'type': 'obstacle',
+                    'position': pos,
+                    'properties': {
+                        'size': size,
+                        'destructible': False
+                    }
+                })
+                print(f"Added obstacle at {pos} with size {size}")
         
-        # Convert bases
-        for base in sim_data.get('bases', []):
-            scenario_data['items'].append({
-                'type': 'base',
-                'position': base['position'],
-                'properties': {
-                    'capacity': base.get('capacity', 10)
-                }
-            })
+        if 'bases' in data:
+            for base in data['bases']:
+                scenario_data['items'].append({
+                    'type': 'base',
+                    'position': base.get('position', [50, 50]),
+                    'properties': {
+                        'capacity': base.get('capacity', 10)
+                    }
+                })
         
         return scenario_data
 
@@ -1013,3 +1226,273 @@ class MainWindow(QMainWindow):
         
         # Restore original
         QTimer.singleShot(2000, lambda: setattr(self.canvas, 'paintEvent', original_paint))
+
+    def create_control_panel(self):
+        """Create the control panel with buttons and settings"""
+        panel = QWidget()
+        layout = QHBoxLayout()
+        panel.setLayout(layout)
+        
+        # Start/Pause button
+        start_button = QPushButton("Start")
+        start_button.setObjectName("start_button")
+        start_button.clicked.connect(self.toggle_simulation)
+        layout.addWidget(start_button)
+        
+        # Reset button
+        reset_button = QPushButton("Reset")
+        reset_button.clicked.connect(self.reset_simulation)
+        layout.addWidget(reset_button)
+        
+        # Grid toggle button
+        grid_btn = QPushButton("Grid")
+        grid_btn.setCheckable(True)
+        grid_btn.clicked.connect(self.toggle_grid)
+        layout.addWidget(grid_btn)
+        
+        # Paths toggle button
+        paths_btn = QPushButton("Paths")
+        paths_btn.setCheckable(True)
+        paths_btn.clicked.connect(self.toggle_paths)
+        layout.addWidget(paths_btn)
+        
+        # Debug toggle button
+        debug_btn = QPushButton("Debug")
+        debug_btn.setCheckable(True)
+        debug_btn.clicked.connect(self.toggle_debug)
+        layout.addWidget(debug_btn)
+        
+        # Performance toggle button
+        perf_btn = QPushButton("Perf")
+        perf_btn.setCheckable(True)
+        perf_btn.clicked.connect(self.toggle_performance)
+        layout.addWidget(perf_btn)
+        
+        # Stats toggle button
+        stats_btn = QPushButton("Stats")
+        stats_btn.setCheckable(True)
+        stats_btn.clicked.connect(self.toggle_stats)
+        layout.addWidget(stats_btn)
+        
+        # REMOVED: Radar button - radar is now always active
+        
+        # Editor button
+        editor_btn = QPushButton("Editor")
+        editor_btn.clicked.connect(self.open_scenario_editor)
+        layout.addWidget(editor_btn)
+        
+        # Create dropdown for modes
+        mode_dropdown = UIComponentManager.create_mode_dropdown(self.change_mode)
+        layout.addWidget(mode_dropdown)
+        
+        # Create dropdown for radar speed (kept for controlling sweep speed)
+        speed_dropdown = UIComponentManager.create_radar_speed_dropdown(self.change_radar_speed)
+        layout.addWidget(speed_dropdown)
+        
+        # Store buttons reference without radar button
+        self.buttons = {
+            'start_button': start_button,
+            'reset_button': reset_button,
+            'grid_button': grid_btn,
+            'paths_button': paths_btn,
+            'debug_button': debug_btn,
+            'perf_button': perf_btn,
+            'stats_button': stats_btn,
+            'editor_button': editor_btn,
+            'mode_dropdown': mode_dropdown,
+            'speed_dropdown': speed_dropdown
+        }
+        
+        return panel
+
+    def stop_simulation(self):
+        """Stop the simulation"""
+        self.simulation_running = False
+        if self.timer.isActive():
+            self.timer.stop()
+        if hasattr(self, 'buttons') and 'start_button' in self.buttons:
+            self.buttons['start_button'].setText("Start Simulation")
+
+    def load_simulation_file(self, filename):
+        """Load simulation from .sim file"""
+        try:
+            with open(filename, 'r') as f:
+                data = json.load(f)
+            
+            # Reset simulation first
+            self.reset_simulation()
+            
+            # Load drones
+            if 'drones' in data:
+                for drone_data in data['drones']:
+                    drone = Drone(
+                        drone_id=drone_data['drone_id'],
+                        x=drone_data['position'][0],
+                        y=drone_data['position'][1]
+                    )
+                    drone.max_missiles = drone_data.get('max_missiles', 2)
+                    drone.has_attacked = drone_data.get('has_attacked', False)
+                    drone.alive = drone_data.get('alive', True)
+                    
+                    self.sim_manager.add_drone(drone)
+            
+            # Load targets
+            if 'targets' in data:
+                for target_data in data['targets']:
+                    target = TargetFactory.create_target(
+                        x=target_data['position'][0],
+                        y=target_data['position'][1],
+                        target_type=target_data.get('target_type', 'standard'),
+                        health=target_data.get('health', 100)
+                    )
+                    target.hidden = target_data.get('hidden', False)
+                    self.sim_manager.set_target(target)
+            
+            # Load obstacles - FIXED FOR .sim FILES
+            if 'obstacles' in data:
+                for obs_data in data['obstacles']:
+                    try:
+                        # Handle different obstacle data formats
+                        if isinstance(obs_data, dict):
+                            # New format with position and properties
+                            pos = obs_data.get('position', [400, 300])
+                            size = obs_data.get('size', 40)
+                            width = obs_data.get('width', size)
+                            height = obs_data.get('height', size)
+                        else:
+                            # Legacy format - assume it's position data
+                            pos = obs_data if isinstance(obs_data, list) else [400, 300]
+                            width = height = 40
+                        
+                        # Create obstacle using ObstacleFactory
+                        obstacle = ObstacleFactory.create_standard_obstacle(
+                            x=int(pos[0]),
+                            y=int(pos[1]),
+                            width=int(width),
+                            height=int(height)
+                        )
+                        
+                        self.sim_manager.add_obstacle(obstacle)
+                        print(f"Loaded obstacle at ({pos[0]}, {pos[1]}) size {width}x{height}")
+                        
+                    except Exception as e:
+                        print(f"Error loading obstacle: {e}")
+                        # Create a fallback obstacle
+                        fallback_obs = ObstacleFactory.create_standard_obstacle(
+                            x=400 + len(self.sim_manager.obstacles) * 60,
+                            y=300,
+                            width=40,
+                            height=40
+                        )
+                        self.sim_manager.add_obstacle(fallback_obs)
+            
+            # Load bases
+            if 'bases' in data:
+                for base_data in data['bases']:
+                    base_pos = base_data['position']
+                    base = QRect(base_pos[0], base_pos[1], 40, 40)  # Standard base size
+                    self.sim_manager.set_base(base)
+            
+            # Load configuration
+            if 'config' in data:
+                config = data['config']
+                mode_name = config.get('mode', 'normal')
+                
+                # Map mode names to enum values
+                mode_mapping = {
+                    'normal': Modes.NORMAL,
+                    'search_and_destroy': Modes.SEARCH_AND_DESTROY,
+                    'escort': Modes.ESCORT,
+                    'reconnaissance': Modes.RECONNAISSANCE,
+                    'defensive': Modes.DEFENSIVE,
+                    'bombing_run': Modes.BOMBING_RUN,
+                    'patrol': Modes.PATROL,
+                    'search_and_rescue': Modes.SEARCH_AND_RESCUE
+                }
+                
+                mode = mode_mapping.get(mode_name, Modes.NORMAL)
+                if self.sim_modes:
+                    self.sim_modes.set_mode(mode)
+                    
+                    # Configure drones and targets for the mode
+                    handler = self.sim_modes.get_current_handler()
+                    if self.sim_manager.drones:
+                        handler.configure_drones(self.sim_manager.drones)
+                    if self.sim_manager.target:
+                        handler.configure_target(self.sim_manager.target)
+            
+            # Update movement controller with new simulation data
+            self._init_simulation()
+            
+            # Update UI
+            self.canvas.update_simulation_data(
+                self.sim_manager,
+                self.movement_controller,
+                self.renderer,
+                self.missile_renderer,
+                self.radar_renderer
+            )
+            
+            print(f"Loaded simulation: {len(self.sim_manager.drones)} drones, {len(self.sim_manager.obstacles)} obstacles")
+            self.canvas.update()
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error loading simulation file: {e}")
+            QMessageBox.warning(self, "Load Error", f"Failed to load simulation file:\n{str(e)}")
+            return False
+
+    def debug_sim_file(self, filename="saves/SearchAndDestroy.sim"):
+        """Debug what's in a .sim file"""
+        try:
+            with open(filename, 'r') as f:
+                data = json.load(f)
+            
+            print("=== SIM FILE DEBUG ===")
+            print(f"File: {filename}")
+            print(f"Top-level keys: {list(data.keys())}")
+            
+            for key, value in data.items():
+                if isinstance(value, list):
+                    print(f"{key}: {len(value)} items")
+                    if value:  # If not empty
+                        print(f"  First item: {value[0]}")
+                elif isinstance(value, dict):
+                    print(f"{key}: dict with keys {list(value.keys())}")
+                else:
+                    print(f"{key}: {value}")
+            
+            print("======================")
+            
+        except Exception as e:
+            print(f"Error reading sim file: {e}")
+
+    def debug_sim_file_structure(self, filename="saves/SearchAndDestroy.sim"):
+        """Debug the complete structure of a .sim file"""
+        try:
+            with open(filename, 'r') as f:
+                data = json.load(f)
+            
+            print("=== COMPLETE SIM FILE STRUCTURE ===")
+            print(f"File: {filename}")
+            
+            def print_nested(obj, indent=0):
+                spaces = "  " * indent
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        print(f"{spaces}{key}:")
+                        print_nested(value, indent + 1)
+                elif isinstance(obj, list):
+                    print(f"{spaces}[{len(obj)} items]")
+                    if obj and indent < 3:  # Limit depth to avoid too much output
+                        print(f"{spaces}First item:")
+                        print_nested(obj[0], indent + 1)
+                else:
+                    print(f"{spaces}{obj}")
+            
+            print_nested(data)
+            print("====================================")
+            
+        except Exception as e:
+            print(f"Error reading sim file: {e}")

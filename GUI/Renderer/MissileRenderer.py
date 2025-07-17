@@ -7,15 +7,39 @@ class MissileRenderer:
     def __init__(self):
         self.trail_fade_factor = 0.8
         
-    def draw_missiles(self, painter: QPainter, missile_manager, offset_y: int):
-        """Draw all missiles with enhanced effects"""
-        for missile in missile_manager.get_active_missiles():
-            self._draw_missile(painter, missile, offset_y)
-            self._draw_missile_trail(painter, missile, offset_y)
+    def render_missiles(self, painter, missile_manager):
+        """Render missiles using the missile manager"""
+        if not missile_manager:
+            return
         
-        # Draw explosion effects
-        for effect in missile_manager.explosion_effects:
-            self._draw_explosion(painter, effect, offset_y)
+        try:
+            # Check if it's a MissileManager object
+            if hasattr(missile_manager, 'get_active_missiles'):
+                active_missiles = missile_manager.get_active_missiles()
+                self.draw_missiles(painter, missile_manager, 0)
+            else:
+                # If it's a list, handle it directly
+                print(f"Warning: Expected MissileManager, got {type(missile_manager)}")
+                return
+        except Exception as e:
+            print(f"Error in render_missiles: {e}")
+    
+    def draw_missiles(self, painter, missile_manager, offset_y: int):
+        """Draw all missiles with enhanced effects"""
+        if not hasattr(missile_manager, 'get_active_missiles'):
+            return
+            
+        try:
+            active_missiles = missile_manager.get_active_missiles()
+            for missile in active_missiles:
+                self._draw_missile(painter, missile, offset_y)
+                self._draw_missile_trail(painter, missile, offset_y)
+            
+            # Draw explosion effects
+            for effect in missile_manager.explosion_effects:
+                self._draw_explosion(painter, effect, offset_y)
+        except Exception as e:
+            print(f"Error in draw_missiles: {e}")
 
     def _draw_missile(self, painter: QPainter, missile, offset_y: int):
         """Draw individual missile with type-specific appearance"""

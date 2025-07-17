@@ -3,19 +3,33 @@ import random
 import math
 
 class Target:
-    def __init__(self, target_id, position, height=20, width=20, is_moving_target=False, is_convoy_target=False, hidden=False):
+    def __init__(self, target_id, position=None, height=30, width=30, hidden=False):
         """
         Initialize a target with an ID, position, height, and width.
         """
         self.target_id = target_id
-        self.position = np.array(position, dtype=float)  # Convert to numpy array
+        
+        # Ensure position is always a proper array
+        if position is None:
+            self.position = np.array([400.0, 300.0], dtype=float)
+        elif isinstance(position, (list, tuple)) and len(position) >= 2:
+            self.position = np.array([float(position[0]), float(position[1])], dtype=float)
+        elif isinstance(position, np.ndarray) and position.size >= 2:
+            if position.ndim == 0:  # 0-dimensional array (scalar)
+                self.position = np.array([400.0, 300.0], dtype=float)
+            else:
+                self.position = np.array([float(position.flat[0]), float(position.flat[1])], dtype=float)
+        else:
+            # Fallback for any other case
+            self.position = np.array([400.0, 300.0], dtype=float)
+        
         self.destroyed = False
         self.height = height
         self.width = width
 
         self.hidden = hidden
-        self.is_moving_target = is_moving_target
-        self.is_convoy_target = is_convoy_target
+        self.is_moving_target = False
+        self.is_convoy_target = False
         
         # Movement properties
         self.velocity = np.zeros(2)
@@ -190,7 +204,21 @@ class Target:
         return self.destroyed
 
     def x(self):
-        return int(self.position[0])
+        """Get x coordinate"""
+        try:
+            if self.position.size >= 2:
+                return int(self.position[0])
+            else:
+                return 400  # Fallback
+        except (IndexError, AttributeError):
+            return 400  # Fallback
     
     def y(self):
-        return int(self.position[1])
+        """Get y coordinate"""
+        try:
+            if self.position.size >= 2:
+                return int(self.position[1])
+            else:
+                return 300  # Fallback
+        except (IndexError, AttributeError):
+            return 300  # Fallback
