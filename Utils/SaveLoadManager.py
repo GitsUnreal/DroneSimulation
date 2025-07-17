@@ -18,18 +18,18 @@ class SaveLoadManager:
             print(f"Created saves directory: {self.default_save_dir}")
         
     def save_simulation(self, filename=None):
-        """Save complete simulation state"""
+        """Save complete simulation state in scenario format"""
         if not filename:
             # Set default filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_filename = f"simulation_{timestamp}.sim"
+            default_filename = f"simulation_{timestamp}.scenario"  # Use .scenario extension
             default_path = os.path.join(self.default_save_dir, default_filename)
             
             filename, _ = QFileDialog.getSaveFileName(
                 None, 
                 "Save Simulation", 
-                default_path,  # Start in saves directory with default name
-                "Simulation Files (*.sim);;All Files (*)"
+                default_path,
+                "Scenario Files (*.scenario);;All Files (*)"  # Use scenario format
             )
             if not filename:
                 return False
@@ -39,21 +39,71 @@ class SaveLoadManager:
                 filename = os.path.join(self.default_save_dir, filename)
                 
         try:
-            simulation_data = {
+            # Convert to scenario format
+            scenario_data = {
                 'metadata': {
-                    'version': '1.0',
+                    'name': f"Simulation Save {datetime.now().strftime('%Y-%m-%d %H:%M')}",
+                    'mission_type': 'search_and_destroy',  # Default
+                    'difficulty': 'Normal',
+                    'time_limit': 300,
+                    'map_width': 1080,
+                    'map_height': 720,
+                    'grid_size': 20,
                     'saved_at': datetime.now().isoformat(),
-                    'drone_count': len(self.main_controller.drones)
+                    'version': '1.0'
                 },
-                'config': self.serialize_config(),
-                'drones': self.serialize_drones(),
-                'obstacles': self.serialize_obstacles(),
-                'targets': self.serialize_targets(),
-                'simulation_state': self.serialize_simulation_state()
+                'items': []
             }
             
+            # Add drones
+            for i, drone in enumerate(self.main_controller.drones):
+                scenario_data['items'].append({
+                    'type': 'drone',
+                    'position': [int(drone.position[0]), int(drone.position[1])],
+                    'properties': {
+                        'drone_id': i,
+                        'max_missiles': getattr(drone, 'max_missiles', 2),
+                        'formation_role': 'assault'
+                    }
+                })
+            
+            # Add target (assuming single target for now)
+            if hasattr(self.main_controller, 'target') and self.main_controller.target:
+                target = self.main_controller.target
+                scenario_data['items'].append({
+                    'type': 'target',
+                    'position': [int(target.position[0]), int(target.position[1])],
+                    'properties': {
+                        'target_type': 'standard',
+                        'health': getattr(target, 'health', 100),
+                        'hidden': getattr(target, 'hidden', False)
+                    }
+                })
+            
+            # Add obstacles
+            for obstacle in self.main_controller.obstacles:
+                scenario_data['items'].append({
+                    'type': 'obstacle',
+                    'position': [int(obstacle.x), int(obstacle.y)],
+                    'properties': {
+                        'size': getattr(obstacle, 'size', 40),
+                        'destructible': False
+                    }
+                })
+            
+            # Add base
+            if hasattr(self.main_controller, 'base'):
+                base = self.main_controller.base
+                scenario_data['items'].append({
+                    'type': 'base',
+                    'position': [int(base.x()), int(base.y())],
+                    'properties': {
+                        'capacity': 10
+                    }
+                })
+            
             with open(filename, 'w') as f:
-                json.dump(simulation_data, f, indent=2)
+                json.dump(scenario_data, f, indent=2)
                 
             QMessageBox.information(None, "Success", f"Simulation saved to {filename}")
             return True
@@ -61,45 +111,41 @@ class SaveLoadManager:
         except Exception as e:
             QMessageBox.critical(None, "Error", f"Failed to save simulation: {str(e)}")
             return False
-            
+
     def load_simulation(self, filename=None):
-        """Load complete simulation state"""
+        """Load simulation from scenario format"""
         if not filename:
             filename, _ = QFileDialog.getOpenFileName(
                 None, 
                 "Load Simulation", 
-                self.default_save_dir,  # Start in saves directory
-                "Simulation Files (*.sim);;All Files (*)"
+                self.default_save_dir,
+                "Scenario Files (*.scenario);;All Files (*)"  # Use scenario format
             )
             if not filename:
                 return False
         else:
-            # For quick load, use the saves directory
             if not os.path.isabs(filename):
                 filename = os.path.join(self.default_save_dir, filename)
-                
+            
         if not os.path.exists(filename):
             QMessageBox.warning(None, "File Not Found", f"File {filename} does not exist")
             return False
-                
+            
         try:
             with open(filename, 'r') as f:
-                simulation_data = json.load(f)
-                
-            # Validate version compatibility
-            if simulation_data.get('metadata', {}).get('version') != '1.0':
-                QMessageBox.warning(None, "Warning", "File version may be incompatible")
-                
+                scenario_data = json.load(f)
+        
+            # This will be handled by the MainWindow's apply_scenario_to_simulation method
             # For now, just show what would be loaded
-            drone_count = simulation_data.get('metadata', {}).get('drone_count', 0)
-            saved_at = simulation_data.get('metadata', {}).get('saved_at', 'Unknown')
-            QMessageBox.information(None, "Load Info", 
-                f"Loaded simulation with {drone_count} drones\nSaved: {saved_at}")
+            metadata = scenario_data.get('metadata', {})
+            items = scenario_data.get('items', [])
             
-            # TODO: Implement actual restoration logic
-            # self.restore_drones(simulation_data['drones'])
-            # self.restore_obstacles(simulation_data['obstacles'])
-            # etc.
+            drone_count = len([item for item in items if item['type'] == 'drone'])
+            target_count = len([item for item in items if item['type'] == 'target'])
+            
+            QMessageBox.information(None, "Load Info", 
+                f"Loaded scenario: {metadata.get('name', 'Unknown')}\n"
+                f"Drones: {drone_count}, Targets: {target_count}")
             
             return True
             
@@ -112,7 +158,7 @@ class SaveLoadManager:
         save_files = []
         if os.path.exists(self.default_save_dir):
             for file in os.listdir(self.default_save_dir):
-                if file.endswith('.sim'):
+                if file.endswith('.scenario'):  # Look for .scenario files
                     save_files.append(file)
         return sorted(save_files, reverse=True)  # Most recent first
 

@@ -26,14 +26,14 @@ class NormalModeHandler(ModeHandler):
             drone.missile_config = MissileConfigPresets.HOMING.value
 
     def configure_target(self, target):
-        # Handle both single target and multiple targets
-        if hasattr(target, '__iter__') and not isinstance(target, str):
-            # Multiple targets
-            for t in target:
-                t.hidden = False
-        else:
-            # Single target
-            target.hidden = False
+        """Configure target for normal mode"""
+        if target is None:
+            return  # Skip configuration for None target
+            
+        target.hidden = False
+        target.is_moving_target = False
+        if hasattr(target, 'speed'):
+            target.speed = 0
     
     def get_movement_parameters(self):
         return DroneMovementMode.STANDARD.value.__dict__

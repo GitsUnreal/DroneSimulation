@@ -1,0 +1,83 @@
+{
+  "metadata": {
+    "name": "Custom Mission",
+    "mission_type": "search_and_destroy",
+    "difficulty": "Normal",
+    "time_limit": 300,
+    "map_width": 1080,
+    "map_height": 720,
+    "grid_size": 20
+  },
+  "items": [
+    {
+      "type": "drone",
+      "position": [
+        100,
+        120
+      ],
+      "properties": {
+        "drone_id": 0,
+        "max_missiles": 2,
+        "formation_role": "assault"
+      }
+    },
+    {
+      "type": "drone",
+      "position": [
+        220,
+        80
+      ],
+      "properties": {
+        "drone_id": 1,
+        "max_missiles": 2,
+        "formation_role": "assault"
+      }
+    },
+    {
+      "type": "drone",
+      "position": [
+        240,
+        160
+      ],
+      "properties": {
+        "drone_id": 2,
+        "max_missiles": 2,
+        "formation_role": "assault"
+      }
+    },
+    {
+      "type": "drone",
+      "position": [
+        120,
+        160
+      ],
+      "properties": {
+        "drone_id": 3,
+        "max_missiles": 2,
+        "formation_role": "assault"
+      }
+    },
+    {
+      "type": "target",
+      "position": [
+        740,
+        560
+      ],
+      "properties": {
+        "target_type": "standard",
+        "health": 100,
+        "hidden": false
+      }
+    },
+    {
+      "type": "base",
+      "position": [
+        60,
+        40
+      ],
+      "properties": {
+        "capacity": 10
+      }
+    }
+  ]
+}

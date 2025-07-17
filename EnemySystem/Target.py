@@ -2,7 +2,7 @@ import numpy as np
 import random
 import math
 
-class target:
+class Target:
     def __init__(self, target_id, position, height=20, width=20, is_moving_target=False, is_convoy_target=False, hidden=False):
         """
         Initialize a target with an ID, position, height, and width.

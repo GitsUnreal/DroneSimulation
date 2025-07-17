@@ -40,9 +40,10 @@ class UIComponentManager:
             ('Grid', (50, 25), 'grid_button', 'toggle_grid'),
             ('Paths', (50, 25), 'path_button', 'toggle_paths'),
             ('Debug', (50, 25), 'debug_button', 'toggle_debug'),
-            ('Stats', (50, 25), 'stats_button', 'toggle_statistics'),    # This should be here
-            ('Perf', (50, 25), 'perf_button', 'toggle_performance'),     # This should be here
+            ('Stats', (50, 25), 'stats_button', 'toggle_statistics'),
+            ('Perf', (50, 25), 'perf_button', 'toggle_performance'),
             ('Radar', (50, 25), 'radar_button', 'toggle_radar'),
+            ('Editor', (60, 25), 'editor_button', 'launch_scenario_editor'),  # Add this line
         ]
         
         buttons = {'start_button': start_button, 'reset_button': reset_button}

@@ -14,7 +14,7 @@ class MissionPhase(Enum):
 class MissionObjective(Enum):
     SEARCH_AND_DESTROY = "search_and_destroy"
     RECONNAISSANCE = "reconnaissance"
-    ESCORT = "escort"
+    ESCORT = "escort"  # Add this line
     PATROL = "patrol"
     SEARCH_AND_RESCUE = "search_and_rescue"
 
