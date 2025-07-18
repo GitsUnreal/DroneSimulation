@@ -173,39 +173,37 @@ class ZoomableSimulationCanvas(QWidget):
         painter = QPainter(self)
         if not painter.isActive():
             return
-            
+
         try:
             # Clear background
             painter.fillRect(self.rect(), QColor(240, 240, 240))
-            
-            # Apply zoom and pan transformations
+
+            # --- Draw the border in viewport coordinates (before transformations) ---
+            pen = QPen(QColor(80, 80, 80), 3)
+            painter.setPen(pen)
+            painter.setBrush(Qt.NoBrush)
+            painter.drawRect(0, 0, self.width() - 1, self.height() - 1)
+            # ------------------------------------------------------------------------
+
+            # Now apply zoom and pan for simulation content
             painter.scale(self.zoom_factor, self.zoom_factor)
             painter.translate(self.pan_offset[0] / self.zoom_factor, self.pan_offset[1] / self.zoom_factor)
             
             # Draw simulation elements if available
             if self.sim_manager and self.renderer:
-                # Draw static elements (obstacles, target, base)
                 self.renderer.draw_static_elements(
                     painter, 0, 
                     self.sim_manager.obstacles, 
                     self.sim_manager.target, 
                     self.sim_manager.base
                 )
-                
-                # Draw drones
                 for drone in self.sim_manager.drones:
                     if drone.alive:
                         self.renderer.draw_drone_with_status(painter, drone, 0, 20)
-                
-                # Draw grid if enabled
                 if self.show_grid and self.movement_controller:
                     self.renderer.draw_grid(painter, 0, self.movement_controller)
-                
-                # Draw paths if enabled
                 if self.show_paths:
                     self.renderer.draw_paths(painter, 0, self.sim_manager.drones)
-            
-            # Draw missiles if available
             if (self.missile_renderer and self.movement_controller and 
                 hasattr(self.movement_controller, 'missile_manager')):
                 try:
@@ -216,32 +214,24 @@ class ZoomableSimulationCanvas(QWidget):
                             self.missile_renderer.render_missiles(painter, missile_manager)
                 except Exception as e:
                     pass
-            
-            # Draw radar if available
             if (self.radar_renderer and self.sim_manager and 
                 hasattr(self.sim_manager, 'drones') and self.sim_manager.drones):
                 try:
-                    # Force radar to be enabled
                     self.radar_renderer.radar_enabled = True
-                    
-                    # Update radar detection every frame
                     visible_obstacles = self.radar_renderer.update_radar(
                         self.sim_manager.obstacles,
                         self.sim_manager.target,
                         self.sim_manager.drones
                     )
-                    
-                    # Draw radar overlay
                     self.radar_renderer.draw_radar(
                         painter,
                         self.sim_manager.drones,
                         self.sim_manager.obstacles,
                         0
                     )
-                    
                 except Exception as e:
                     pass
-                    
+
         except Exception as e:
             pass
         finally:
