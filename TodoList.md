@@ -185,6 +185,8 @@
 - ~~Can't change gamemode in the GUI~~ *(FIXED)*
 - [x] Cannot spawn a convoy of targets *(spawn_convoy_targets method implemented)*
 - [ ] Cannot load a save *(SaveLoadManager exists but may have issues)*
+- Need to change mission selector in simulation to simulation speed. So the user only can change the mission in the editor.
+- Need to make it so when the target is hit, and destoryed the target gets a red cross over the square, and a text over with the text "Destroyed" in red. 
 
 ### Development Priorities
 1. ~~Fix return-to-base navigation~~ ✅
