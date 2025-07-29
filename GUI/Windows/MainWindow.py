@@ -30,6 +30,9 @@ from GUI.Controllers.PanelController import PanelController
 from GUI.Scenario.ScenarioEditor import ScenarioEditor
 from GUI.Panels.Toggle import Toggle
 from GUI.Simulation.UpdateGUI import UpdateGUI
+from GUI.Scenario.ExportScenario import export_current_simulation_as_scenario
+from GUI.Scenario.ApplyScenario import apply_scenario_to_simulation
+from GUI.Components.CreateFile import create_file_menu
 
 class MainWindow(QMainWindow):
     def _init_components(self):
@@ -68,7 +71,7 @@ class MainWindow(QMainWindow):
         self._init_ui()
         self._init_simulation()
         self.save_load_manager = SaveLoadManager(self.movement_controller)
-        self.create_file_menu()
+        create_file_menu(main_window=self)
 
         self.toggle_helper = Toggle(self)
         self.update_gui_helper = UpdateGUI(self)
@@ -214,31 +217,8 @@ class MainWindow(QMainWindow):
         self.missile_status_labels = []
 
     def _update_simulation(self):
-        """Main simulation update loop"""
-        if not self.simulation_running:
-            return
+        self.update_gui_helper._update_simulation()
         
-        # Use simulation controller
-        self.simulation_controller.update_simulation_step()
-        self.simulation_controller.check_missile_explosions()
-        
-        # Update UI components
-        self._update_missile_display()
-        self._update_panels()
-        self._check_for_alerts()
-        
-        # Update the canvas
-        self.simulation_canvas.update()
-
-    def _update_missile_display(self):
-        """Update missile status display"""
-        for drone, label in zip(self.sim_manager.drones, self.missile_status_labels):
-            status_info = DroneStateManager.get_drone_status_info(drone)
-            label.setText(status_info['text'])
-            label.setStyleSheet(
-                f"font-size: 12px; color: {status_info['color']}; "
-                f"background-color: rgba(255,255,255,150); padding: 2px; border-radius: 3px;"
-            )
 
     def _update_panels(self):
         """Update monitoring panels"""
@@ -571,38 +551,7 @@ class MainWindow(QMainWindow):
         speed_mode = speed_mapping.get(speed_text, "normal")
         self.radar_renderer.set_sweep_speed(speed_mode)
 
-    def create_file_menu(self):
-        """Create file menu with save/load and scenario editor options"""
-        menubar = self.menuBar()
-        file_menu = menubar.addMenu('File')
-        
-        # Scenario Editor
-        scenario_action = file_menu.addAction('Scenario Editor')
-        scenario_action.triggered.connect(self.launch_scenario_editor)
-        
-        file_menu.addSeparator()
-        
-        # Quick Save
-        quick_save_action = file_menu.addAction('Quick Save')
-        quick_save_action.setShortcut('F5')
-        quick_save_action.triggered.connect(self.quick_save)
-        
-        # Quick Load
-        quick_load_action = file_menu.addAction('Quick Load')
-        quick_load_action.setShortcut('F9')
-        quick_load_action.triggered.connect(self.quick_load)
-        
-        file_menu.addSeparator()
-        
-        # Save Simulation
-        save_action = file_menu.addAction('Save Simulation')
-        save_action.setShortcut('Ctrl+S')
-        save_action.triggered.connect(self.save_simulation)
-        
-        # Load Simulation
-        load_action = file_menu.addAction('Load Simulation')
-        load_action.setShortcut('Ctrl+O')
-        load_action.triggered.connect(self.load_simulation)
+
 
     def launch_scenario_editor(self):
         """Launch the scenario editor"""
@@ -631,7 +580,7 @@ class MainWindow(QMainWindow):
                 try:
                     with open(full_path, 'r') as f:
                         scenario_data = json.load(f)
-                    self.apply_scenario_to_simulation(scenario_data)
+                    apply_scenario_to_simulation(self, scenario_data)
                     QMessageBox.information(self, "Success", f"Loaded: {latest_file}")
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Failed to load: {str(e)}")
@@ -697,266 +646,12 @@ class MainWindow(QMainWindow):
             with open(filename, 'r') as f:
                 scenario_data = json.load(f)
             
-            self.apply_scenario_to_simulation(scenario_data)
+            apply_scenario_to_simulation(scenario_data)
             return True
         except Exception as e:
             print(f"Failed to load scenario: {e}")
             return False
 
-    def apply_scenario_to_simulation(self, scenario_data: dict):
-        """Apply scenario data to current simulation"""
-        try:
-            # Ensure base exists before proceeding
-            if self.sim_manager.base is None:
-                from PyQt5.QtCore import QRect
-                from Config.SimulationConfig import SimulationConfig
-                self.sim_manager.base = QRect(50, 50, SimulationConfig.BASE_SIZE, SimulationConfig.BASE_SIZE)
-        
-            # Reset simulation first
-            self.reset_simulation()
-            
-            # Apply mission settings
-            metadata = scenario_data.get('metadata', {})
-            mission_type = metadata.get('mission_type', 'normal').lower()
-            
-            # Count drones in scenario
-            items = scenario_data.get('items', [])
-            scenario_drones = [item for item in items if item.get('type') == 'drone']
-            num_drones_in_scenario = len(scenario_drones)
-            
-            # Set mode
-            try:
-                if mission_type == 'search_and_destroy' and hasattr(Modes, 'SEARCH_AND_DESTROY'):
-                    self.sim_modes.set_mode(Modes.SEARCH_AND_DESTROY)
-                elif mission_type == 'escort' and hasattr(Modes, 'ESCORT'):
-                    self.sim_modes.set_mode(Modes.ESCORT)
-                else:
-                    self.sim_modes.set_mode(Modes.NORMAL)
-            except Exception as e:
-                self.sim_modes.set_mode(Modes.NORMAL)
-            
-            # Clear existing elements
-            self.sim_manager.drones.clear()
-            self.sim_manager.obstacles.clear()
-            
-            # Process items
-            drone_count = 0
-            for item in items:
-                try:
-                    item_type = item.get('type')
-                    position = item.get('position', [100, 100])
-                    if isinstance(position, (int, float)):
-                        position = [position, position]
-                    elif not isinstance(position, (list, tuple)):
-                        position = [100, 100]
-                    
-                    if len(position) < 2:
-                        position = position + [100] * (2 - len(position))
-                    
-                    properties = item.get('properties', {})
-                    
-                    if item_type == 'drone':
-                        from DroneSystem.Core.Drone import Drone
-                        
-                        drone = Drone(
-                            position=[float(position[0]), float(position[1])], 
-                            velocity=[0.0, 0.0], 
-                            drone_id=drone_count
-                        )
-                        
-                        drone.max_missiles = properties.get('max_missiles', 2)
-                        drone.formation_role = properties.get('formation_role', 'assault')
-                        
-                        self.sim_manager.drones.append(drone)
-                        drone_count += 1
-                        
-                    elif item_type == 'target':
-                        try:
-                            from EnemySystem.Target import Target
-                            
-                            target_x = float(position[0])
-                            target_y = float(position[1])
-                            
-                            target = Target(
-                                target_id=1, 
-                                position=[target_x, target_y],
-                                height=properties.get('height', 30),
-                                width=properties.get('width', 30),
-                                hidden=properties.get('hidden', False)
-                            )
-                            
-                            target.target_type = properties.get('target_type', 'standard')
-                            target.health = properties.get('health', 100)
-                            target.movement_pattern = properties.get('movement_pattern', 'stationary')
-                            
-                            if mission_type == 'escort':
-                                target.is_vip = True
-                                target.needs_escort = True
-                            
-                            self.sim_manager.target = target
-                            
-                        except Exception as e:
-                            pass
-                            
-                    elif item_type == 'obstacle':
-                        try:
-                            from PyQt5.QtCore import QRect
-                            
-                            obs_x = int(float(position[0]))
-                            obs_y = int(float(position[1]))
-                            
-                            obs_width = properties.get('width', properties.get('size', 40))
-                            obs_height = properties.get('height', properties.get('size', 40))
-                            
-                            obs_width = max(int(obs_width), 20)
-                            obs_height = max(int(obs_height), 20)
-                            
-                            obstacle = QRect(obs_x, obs_y, obs_width, obs_height)
-                            self.sim_manager.obstacles.append(obstacle)
-                            
-                        except Exception as e:
-                            fallback_obs = QRect(300 + len(self.sim_manager.obstacles) * 60, 300, 40, 40)
-                            self.sim_manager.obstacles.append(fallback_obs)
-                            
-                    elif item_type == 'base':
-                        try:
-                            from PyQt5.QtCore import QRect
-                            
-                            base_x = int(float(position[0]))
-                            base_y = int(float(position[1]))
-                            base_capacity = properties.get('capacity', 10)
-                            
-                            base_size = max(base_capacity, 20)
-                            self.sim_manager.base = QRect(base_x, base_y, base_size, base_size)
-                            
-                        except Exception as e:
-                            if self.sim_manager.base is None:
-                                self.sim_manager.base = QRect(50, 50, 20, 20)
-                
-                except Exception as e:
-                    continue
-    
-            # Reinitialize movement controller
-            try:
-                self.movement_controller = MainController(
-                    self.sim_manager.drones, 
-                    self.sim_manager.obstacles, 
-                    self.sim_manager.target, 
-                    self.sim_manager.base,
-                    self.sim_modes,
-                    alert_system=self.alert_system
-                )
-                self.sim_manager.movement_controller = self.movement_controller
-            except Exception as e:
-                pass
-            
-            # Recreate missile status labels
-            try:
-                for label in self.missile_status_labels:
-                    label.deleteLater()
-                self.missile_status_labels = UIComponentManager.create_missile_status_labels(
-                    self.sim_manager.drones, self.missile_status_layout
-                )
-            except Exception as e:
-                pass
-            
-            # Update canvas
-            try:
-                self.canvas.sim_manager = self.sim_manager
-                self.canvas.movement_controller = self.movement_controller
-                self.canvas.renderer = self.renderer
-                self.canvas.missile_renderer = self.missile_renderer
-                self.canvas.radar_renderer = self.radar_renderer
-                self.canvas.explosion_manager = self.explosion_manager
-                self.canvas.screen_flash = self.screen_flash
-                
-                self.canvas.show_grid = self.show_grid
-                self.canvas.show_paths = self.show_paths
-                self.canvas.show_debug = self.show_debug
-                
-                self.canvas.update()
-                self.canvas.repaint()
-                QApplication.processEvents()
-                
-            except Exception as e:
-                pass
-        
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to apply scenario: {str(e)}")
-
-        # Force canvas updates
-        try:
-            self.canvas.setMinimumSize(800, 600)
-            self.canvas.resize(1080, 720)
-            
-            for i in range(3):
-                self.canvas.update()
-                self.canvas.repaint()
-                QApplication.processEvents()
-                
-        except Exception as e:
-            pass
-
-    def export_current_simulation_as_scenario(self):
-        """Export current simulation state as a scenario"""
-        scenario_data = {
-            'metadata': {
-                'name': f"Exported Scenario {len(self.sim_manager.drones)} drones",
-                'mission_type': self.sim_modes.current_mode.value.lower(),
-                'difficulty': 'Normal',
-                'time_limit': 300,
-                'map_width': 1080,
-                'map_height': 720,
-                'grid_size': 20
-            },
-            'items': []
-        }
-        
-        # Export drones
-        for i, drone in enumerate(self.sim_manager.drones):
-            scenario_data['items'].append({
-                'type': 'drone',
-                'position': [int(drone.position[0]), int(drone.position[1])],
-                'properties': {
-                    'drone_id': i,
-                    'max_missiles': drone.max_missiles,
-                    'formation_role': 'assault'
-                }
-            })
-        
-        # Export target
-        if self.sim_manager.target:
-            scenario_data['items'].append({
-                'type': 'target',
-                'position': [int(self.sim_manager.target.position[0]), int(self.sim_manager.target.position[1])],
-                'properties': {
-                    'target_type': 'standard',
-                    'health': getattr(self.sim_manager.target, 'health', 100),
-                    'hidden': getattr(self.sim_manager.target, 'hidden', False)
-                }
-            })
-        
-        # Export obstacles
-        for obstacle in self.sim_manager.obstacles:
-            scenario_data['items'].append({
-                'type': 'obstacle',
-                'position': [obstacle.x, obstacle.y],
-                'properties': {
-                    'size': getattr(obstacle, 'size', 40),
-                    'destructible': False
-                }
-            })
-        
-        # Export base
-        scenario_data['items'].append({
-            'type': 'base',
-            'position': [self.sim_manager.base.x(), self.sim_manager.base.y()],
-            'properties': {
-                'capacity': 10
-            }
-        })
-        
-        return scenario_data
 
     def save_simulation(self):
         """Save simulation with file dialog"""
@@ -1004,7 +699,7 @@ class MainWindow(QMainWindow):
                     scenario_data = self.parse_unknown_format(data)
                 
                 # Apply the scenario to simulation
-                self.apply_scenario_to_simulation(scenario_data)
+                apply_scenario_to_simulation(self, scenario_data)
                 
                 QMessageBox.information(self, "Success", f"Simulation loaded: {filename}")
                 
@@ -1247,107 +942,6 @@ class MainWindow(QMainWindow):
         # You could also add a label to show this info
         if hasattr(self, 'drone_count_label'):
             self.drone_count_label.setText(f"Drones: {current_count}")
-
-    def debug_simulation_state(self):
-        """Debug current simulation state"""
-        print("=== SIMULATION DEBUG ===")
-        print(f"Drones: {len(self.sim_manager.drones)}")
-        for i, drone in enumerate(self.sim_manager.drones):
-            print(f"  Drone {i}: pos={drone.position}, alive={getattr(drone, 'alive', True)}")
-        
-        print(f"Target: {self.sim_manager.target}")
-        if self.sim_manager.target:
-            print(f"  Target pos: {getattr(self.sim_manager.target, 'position', 'No position')}")
-        
-        print(f"Obstacles: {len(self.sim_manager.obstacles)}")
-        for i, obs in enumerate(self.sim_manager.obstacles[:3]):  # First 3 only
-            print(f"  Obstacle {i}: x={obs.x()}, y={obs.y()}, w={obs.width()}, h={obs.height()}")
-        
-        print(f"Base: {self.sim_manager.base}")
-        print(f"Canvas size: {self.canvas.size()}")
-        print(f"Canvas visible: {self.canvas.isVisible()}")
-        print("========================")
-
-    def create_control_panel(self):
-        """Create the control panel with buttons and settings"""
-        panel = QWidget()
-        layout = QHBoxLayout()
-        panel.setLayout(layout)
-        
-        # Start/Pause button
-        start_button = QPushButton("Start")
-        start_button.setObjectName("start_button")
-        start_button.clicked.connect(self.toggle_simulation)
-        layout.addWidget(start_button)
-        
-        # Reset button
-        reset_button = QPushButton("Reset")
-        reset_button.clicked.connect(self.reset_simulation)
-        layout.addWidget(reset_button)
-        
-        # Grid toggle button
-        grid_btn = QPushButton("Grid")
-        grid_btn.setCheckable(True)
-        grid_btn.clicked.connect(self.toggle_grid)
-        layout.addWidget(grid_btn)
-        
-        # Paths toggle button
-        paths_btn = QPushButton("Paths")
-        paths_btn.setCheckable(True)
-        paths_btn.clicked.connect(self.toggle_paths)
-        layout.addWidget(paths_btn)
-        
-        # Debug toggle button
-        debug_btn = QPushButton("Debug")
-        debug_btn.setCheckable(True)
-        debug_btn.clicked.connect(self.toggle_debug)
-        layout.addWidget(debug_btn)
-        
-        # Performance toggle button
-        perf_btn = QPushButton("Perf")
-        perf_btn.setCheckable(True)
-        perf_btn.clicked.connect(self.toggle_performance)
-        layout.addWidget(perf_btn)
-        
-        # Stats toggle button
-        stats_btn = QPushButton("Stats")
-        stats_btn.setCheckable(True)
-        stats_btn.clicked.connect(self.toggle_stats)
-        layout.addWidget(stats_btn)
-        
-        # REMOVED: Radar button - radar is now always active
-        
-        # Editor button
-        editor_btn = QPushButton("Editor")
-        editor_btn.clicked.connect(self.open_scenario_editor)
-        layout.addWidget(editor_btn)
-        
-        # Create dropdown for modes
-        mode_dropdown = UIComponentManager.create_mode_dropdown(self.change_mode)
-        layout.addWidget(mode_dropdown)
-        
-        # Create dropdown for radar speed (kept for controlling sweep speed)
-        speed_dropdown = UIComponentManager.create_radar_speed_dropdown(self.change_radar_speed)
-        layout.addWidget(speed_dropdown)
-        
-        # Store buttons reference without radar button
-        self.buttons = {
-            'start_button': start_button,
-            'reset_button': reset_button,
-            'grid_button': grid_btn,
-            'paths_button': paths_btn,
-            'debug_button': debug_btn,
-            'perf_button': perf_btn,
-            'stats_button': stats_btn,
-            'editor_button': editor_btn,
-            'mode_dropdown': mode_dropdown,
-            'speed_dropdown': speed_dropdown
-        }
-        
-        return panel
-
-    def _update_simulation(self):
-        self.update_gui_helper._update_simulation()
 
     def _update_panels(self):
         self.update_gui_helper._update_panels()
