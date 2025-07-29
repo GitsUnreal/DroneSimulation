@@ -1,7 +1,7 @@
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMainWindow, QPushButton, QLabel, QFileDialog, QMessageBox, QApplication
 from PyQt5.QtCore import QTimer, Qt
-from PyQt5.QtGui import QPainter, QBrush, QColor, QPaintEvent  # Add these too
+from PyQt5.QtGui import QPainter, QBrush, QColor, QPaintEvent
 import os
 from datetime import datetime
 import json
@@ -27,9 +27,40 @@ from Factory.ObstacleFactory import ObstacleFactory
 from Utils.SaveLoadManager import SaveLoadManager
 from GUI.Canvas.SimulationCanvas import SimulationCanvas
 from GUI.Controllers.PanelController import PanelController
-from GUI.Windows.ScenarioEditor import ScenarioEditor
+from GUI.Scenario.ScenarioEditor import ScenarioEditor
+from GUI.Panels.Toggle import Toggle
+from GUI.Simulation.UpdateGUI import UpdateGUI
 
 class MainWindow(QMainWindow):
+    def _init_components(self):
+        """Initialize all GUI components"""
+        self.sim_manager = SimulationManager()
+        self.sim_modes = SimModes()
+        self.explosion_manager = ExplosionManager()
+        self.screen_flash = ScreenFlash()
+        self.renderer = Renderer()
+        self.missile_renderer = MissileRenderer()
+        self.radar_renderer = RadarRenderer()
+        self.radar_renderer.enable_radar(True)
+        self.radar_renderer.radar_enabled = True
+        self.debug_panel = DebugPanel(self)
+        self.performance_panel = PerformancePanel(self)
+        self.statistics_panel = StatisticsPanel(self)
+        self.alert_system = AlertSystem(self)
+        self.status_checker = StatusChecker()
+        self.panel_controller = PanelController(self)
+        self.simulation_controller = SimulationController(
+            self.sim_manager, self.radar_renderer, self.status_checker,
+            self.explosion_manager, self.screen_flash
+        )
+        self.simulation_controller.add_target_destroyed_callback(self._on_target_destroyed)
+        self.simulation_running = False
+        self.show_grid = False
+        self.show_paths = False
+        self.show_debug = False
+        self.timer = QTimer()
+        self.timer.timeout.connect(self._update_simulation)
+        self.timer.setInterval(SimulationConfig.TIMER_INTERVAL)
     def __init__(self):
         super().__init__()
         self._init_window()
@@ -39,59 +70,26 @@ class MainWindow(QMainWindow):
         self.save_load_manager = SaveLoadManager(self.movement_controller)
         self.create_file_menu()
 
+        self.toggle_helper = Toggle(self)
+        self.update_gui_helper = UpdateGUI(self)
+
     def _init_window(self):
         """Initialize window properties"""
         self.setWindowTitle("Drone Simulator")
         self.resize(SimulationConfig.WINDOW_WIDTH, SimulationConfig.WINDOW_HEIGHT)
         self.setStyleSheet("background-color: #f0f0f0;")
 
-    def _init_components(self):
-        """Initialize all GUI components"""
-        # Initialize simulation manager FIRST
-        self.sim_manager = SimulationManager()
-        
-        # Initialize simulation modes
-        self.sim_modes = SimModes()
-        
-        # Initialize effects systems
-        self.explosion_manager = ExplosionManager()
-        self.screen_flash = ScreenFlash()
-        
-        # Initialize renderers and managers
-        self.renderer = Renderer()
-        self.missile_renderer = MissileRenderer()
-        self.radar_renderer = RadarRenderer()
-        
-        # ALWAYS ENABLE RADAR - no button control needed
-        self.radar_renderer.enable_radar(True)
-        self.radar_renderer.radar_enabled = True
-        print("Radar is always enabled")
-        
-        # UI panels - Make sure they get the main window as parent
-        self.debug_panel = DebugPanel(self)
-        self.performance_panel = PerformancePanel(self)
-        self.statistics_panel = StatisticsPanel(self)
-        self.alert_system = AlertSystem(self)
-        self.status_checker = StatusChecker()
-        
-        self.panel_controller = PanelController(self)
-        
-        # Simulation controller - NOW we can use sim_manager
-        self.simulation_controller = SimulationController(
-            self.sim_manager, self.radar_renderer, self.status_checker,
-            self.explosion_manager, self.screen_flash
-        )
-        self.simulation_controller.add_target_destroyed_callback(self._on_target_destroyed)
-        
-        # State
-        self.simulation_running = False
-        self.show_grid = False
-        self.show_paths = False
-        self.show_debug = False
-        
-        # Timer
-        self.timer = QTimer()
-        self.timer.timeout.connect(self._update_simulation)
+    def toggle_simulation(self):
+        self.toggle_helper.toggle_simulation()
+
+    def toggle_grid(self):
+        self.toggle_helper.toggle_grid()
+
+    def toggle_paths(self):
+        self.toggle_helper.toggle_paths()
+
+    def toggle_debug(self):
+        self.toggle_helper.toggle_debug()
         self.timer.setInterval(SimulationConfig.TIMER_INTERVAL)
 
     def _init_ui(self):
@@ -1270,27 +1268,6 @@ class MainWindow(QMainWindow):
         print(f"Canvas visible: {self.canvas.isVisible()}")
         print("========================")
 
-    # Add this to MainWindow to test basic canvas drawing:
-
-    def test_canvas_drawing(self):
-        """Test if canvas can draw anything"""
-        print("Testing canvas drawing...")
-        
-        # Force a simple drawing test
-        def simple_paint(event):
-            painter = QPainter(self.canvas)
-            painter.fillRect(0, 0, 200, 200, QColor(255, 0, 0))  # Red square
-            painter.drawText(50, 50, "TEST DRAWING")
-            painter.end()
-        
-        # Temporarily override paintEvent
-        original_paint = self.canvas.paintEvent
-        self.canvas.paintEvent = simple_paint
-        self.canvas.update()
-        
-        # Restore original
-        QTimer.singleShot(2000, lambda: setattr(self.canvas, 'paintEvent', original_paint))
-
     def create_control_panel(self):
         """Create the control panel with buttons and settings"""
         panel = QWidget()
@@ -1369,142 +1346,10 @@ class MainWindow(QMainWindow):
         
         return panel
 
-    def stop_simulation(self):
-        """Stop the simulation"""
-        self.simulation_running = False
-        if self.timer.isActive():
-            self.timer.stop()
-        if hasattr(self, 'buttons') and 'start_button' in self.buttons:
-            self.buttons['start_button'].setText("Start Simulation")
+    def _update_simulation(self):
+        self.update_gui_helper._update_simulation()
 
-    def load_simulation_file(self, filename):
-        """Load simulation from .sim file"""
-        try:
-            with open(filename, 'r') as f:
-                data = json.load(f)
-            
-            # Reset simulation first
-            self.reset_simulation()
-            
-            # Load drones
-            if 'drones' in data:
-                for drone_data in data['drones']:
-                    drone = Drone(
-                        drone_id=drone_data['drone_id'],
-                        x=drone_data['position'][0],
-                        y=drone_data['position'][1]
-                    )
-                    drone.max_missiles = drone_data.get('max_missiles', 2)
-                    drone.has_attacked = drone_data.get('has_attacked', False)
-                    drone.alive = drone_data.get('alive', True)
-                    
-                    self.sim_manager.add_drone(drone)
-            
-            # Load targets
-            if 'targets' in data:
-                for target_data in data['targets']:
-                    target = TargetFactory.create_target(
-                        x=target_data['position'][0],
-                        y=target_data['position'][1],
-                        target_type=target_data.get('target_type', 'standard'),
-                        health=target_data.get('health', 100)
-                    )
-                    target.hidden = target_data.get('hidden', False)
-                    self.sim_manager.set_target(target)
-            
-            # Load obstacles - FIXED FOR .sim FILES
-            if 'obstacles' in data:
-                for obs_data in data['obstacles']:
-                    try:
-                        # Handle different obstacle data formats
-                        if isinstance(obs_data, dict):
-                            # New format with position and properties
-                            pos = obs_data.get('position', [400, 300])
-                            size = obs_data.get('size', 40)
-                            width = obs_data.get('width', size)
-                            height = obs_data.get('height', size)
-                        else:
-                            # Legacy format - assume it's position data
-                            pos = obs_data if isinstance(obs_data, list) else [400, 300]
-                            width = height = 40
-                        
-                        # Create obstacle using ObstacleFactory
-                        obstacle = ObstacleFactory.create_standard_obstacle(
-                            x=int(pos[0]),
-                            y=int(pos[1]),
-                            width=int(width),
-                            height=int(height)
-                        )
-                        
-                        self.sim_manager.add_obstacle(obstacle)
-                        print(f"Loaded obstacle at ({pos[0]}, {pos[1]}) size {width}x{height}")
-                        
-                    except Exception as e:
-                        print(f"Error loading obstacle: {e}")
-                        # Create a fallback obstacle
-                        fallback_obs = ObstacleFactory.create_standard_obstacle(
-                            x=400 + len(self.sim_manager.obstacles) * 60,
-                            y=300,
-                            width=40,
-                            height=40
-                        )
-                        self.sim_manager.add_obstacle(fallback_obs)
-            
-            # Load bases
-            if 'bases' in data:
-                for base_data in data['bases']:
-                    base_pos = base_data['position']
-                    base = QRect(base_pos[0], base_pos[1], 40, 40)  # Standard base size
-                    self.sim_manager.set_base(base)
-            
-            # Load configuration
-            if 'config' in data:
-                config = data['config']
-                mode_name = config.get('mode', 'normal')
-                
-                # Map mode names to enum values
-                mode_mapping = {
-                    'normal': Modes.NORMAL,
-                    'search_and_destroy': Modes.SEARCH_AND_DESTROY,
-                    'escort': Modes.ESCORT,
-                    'reconnaissance': Modes.RECONNAISSANCE,
-                    'defensive': Modes.DEFENSIVE,
-                    'bombing_run': Modes.BOMBING_RUN,
-                    'patrol': Modes.PATROL,
-                    'search_and_rescue': Modes.SEARCH_AND_RESCUE
-                }
-                
-                mode = mode_mapping.get(mode_name, Modes.NORMAL)
-                if self.sim_modes:
-                    self.sim_modes.set_mode(mode)
-                    
-                    # Configure drones and targets for the mode
-                    handler = self.sim_modes.get_current_handler()
-                    if self.sim_manager.drones:
-                        handler.configure_drones(self.sim_manager.drones)
-                    if self.sim_manager.target:
-                        handler.configure_target(self.sim_manager.target)
-            
-            # Update movement controller with new simulation data
-            self._init_simulation()
-            
-            # Update UI
-            self.canvas.update_simulation_data(
-                self.sim_manager,
-                self.movement_controller,
-                self.renderer,
-                self.missile_renderer,
-                self.radar_renderer
-            )
-            
-            print(f"Loaded simulation: {len(self.sim_manager.drones)} drones, {len(self.sim_manager.obstacles)} obstacles")
-            self.canvas.update()
-            
-            return True
-            
-        except Exception as e:
-            print(f"Error loading simulation file: {e}")
-            QMessageBox.warning(self, "Load Error", f"Failed to load simulation file:\n{str(e)}")
-            return False
+    def _update_panels(self):
+        self.update_gui_helper._update_panels()
 
 
