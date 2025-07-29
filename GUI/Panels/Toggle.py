@@ -1,5 +1,5 @@
 from PyQt5.QtCore import QObject
-
+from GUI.Components.UIComponentManager import UIComponentManager
 
 class Toggle:
     def __init__(self, main_window):
@@ -62,13 +62,13 @@ class Toggle(QObject):
         self.main_window = main_window
 
     def toggle_simulation(self):
-        # Move logic from MainWindow.toggle_simulation here
-        if hasattr(self.main_window, 'simulation_running'):
-            self.main_window.simulation_running = not self.main_window.simulation_running
-            if self.main_window.simulation_running:
-                self.main_window.timer.start()
-            else:
-                self.main_window.timer.stop()
+        self.simulation_running = not self.simulation_running
+        if self.simulation_running:
+            self.timer.start()
+            self.buttons['start_button'].setText("Pause Simulation")
+        else:
+            self.timer.stop()
+            self.buttons['start_button'].setText("Start Simulation")
 
     def toggle_grid(self):
         # Move logic from MainWindow.toggle_grid here
@@ -77,17 +77,27 @@ class Toggle(QObject):
             self.main_window.simulation_canvas.update()
 
     def toggle_paths(self):
-        # Move logic from MainWindow.toggle_paths here
-        if hasattr(self.main_window, 'show_paths'):
-            self.main_window.show_paths = not self.main_window.show_paths
-            self.main_window.simulation_canvas.update()
+        """Toggle path display"""
+        if hasattr(self.canvas, 'show_paths'):
+            self.canvas.show_paths = not self.canvas.show_paths
+        else:
+            self.canvas.show_paths = True
+        
+        # Update button style to show active state
+        if hasattr(self, 'buttons') and 'paths_button' in self.buttons:
+            UIComponentManager.update_button_style(
+                self.buttons['paths_button'], 
+                self.canvas.show_paths, 
+                'paths_button'
+            )
+        
+        self.canvas.update()
 
     def toggle_debug(self):
-        # Move logic from MainWindow.toggle_debug here
-        if hasattr(self.main_window, 'show_debug'):
-            self.main_window.show_debug = not self.main_window.show_debug
-            if self.main_window.show_debug:
-                self.main_window.debug_panel.create_panel()
-            else:
-                self.main_window.debug_panel.hide_panel()
-            self.main_window.simulation_canvas.update()
+        self.show_debug = not self.show_debug
+        UIComponentManager.update_button_style(self.buttons['debug_button'], self.show_debug, 'debug_button')
+        
+        if self.show_debug:
+            self.debug_panel.create_panel()
+        else:
+            self.debug_panel.hide_panel()
