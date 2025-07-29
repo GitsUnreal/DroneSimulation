@@ -165,12 +165,13 @@
 - [x] **Advanced decision-making AI** *(DecisionTrees.py)*
 - [x] **Formation flying patterns** *(PatternGenerator.py)*
 - [x] **Comprehensive status management** *(StatusChecker.py)*
-- [ ] **Network/multiplayer architecture**
-- [ ] **Advanced graphics shaders**
-- [ ] **Sound effects and audio system**
-- [ ] **Telemetry data recording**
-- [ ] **Mission scripting system**
-
+- [ ] Make  effect work again
+- [ ] Make the drones fly in a spotting formation to try to spot the target instead of flying directly towards the target
+- [ ] Make possibility for a convouyr of target
+- [ ] Make a formation flying drone attack
+- [ ] Make target health and drone health
+- [ ] Make the mission selector in simulation to be simulation speed, so only the mission can be selected in editor.
+ 
 ---
 
 ## 📝 Notes
