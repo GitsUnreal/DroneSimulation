@@ -4,7 +4,7 @@ import json
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
 from datetime import datetime
 import os
-from GUI.Simulation.ApplyScenario import apply_scenario_to_simulation
+from GUI.Scenario.ApplyScenario import apply_scenario_to_simulation
 
 
 class SaveAndLoad:

@@ -1,6 +1,7 @@
+
 import numpy as np
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QMainWindow, QPushButton, QLabel, QFileDialog, QMessageBox, QApplication
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import QTimer, Qt, QRect
 from PyQt5.QtGui import QPainter, QBrush, QColor, QPaintEvent
 import os
 from datetime import datetime
@@ -28,15 +29,30 @@ from Utils.SaveLoadManager import SaveLoadManager
 from GUI.Canvas.SimulationCanvas import SimulationCanvas
 from GUI.Controllers.PanelController import PanelController
 from GUI.Scenario.ScenarioEditor import ScenarioEditor
+from GUI.System.Zoom import Zoom
+from GUI.Components.CreateFile import create_file_menu
 from GUI.Panels.Toggle import Toggle
 from GUI.Simulation.UpdateGUI import UpdateGUI
-from GUI.Scenario.ExportScenario import export_current_simulation_as_scenario
-from GUI.Scenario.ApplyScenario import apply_scenario_to_simulation
-from GUI.Components.CreateFile import create_file_menu
 
 class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self._init_window()
+        self._init_components()
+        self._init_ui()
+        self._init_simulation()
+        self.save_load_manager = SaveLoadManager(self.movement_controller)
+        self.file_menu_helper = create_file_menu(main_window=self)
+        self.toggle_helper = Toggle(self)
+        self.update_gui_helper = UpdateGUI(self)
+
+
+    def _init_window(self):
+        self.setWindowTitle("Drone Simulator")
+        self.resize(SimulationConfig.WINDOW_WIDTH, SimulationConfig.WINDOW_HEIGHT)
+        self.setStyleSheet("background-color: #f0f0f0;")
+
     def _init_components(self):
-        """Initialize all GUI components"""
         self.sim_manager = SimulationManager()
         self.sim_modes = SimModes()
         self.explosion_manager = ExplosionManager()
@@ -64,23 +80,98 @@ class MainWindow(QMainWindow):
         self.timer = QTimer()
         self.timer.timeout.connect(self._update_simulation)
         self.timer.setInterval(SimulationConfig.TIMER_INTERVAL)
-    def __init__(self):
-        super().__init__()
-        self._init_window()
-        self._init_components()
-        self._init_ui()
-        self._init_simulation()
-        self.save_load_manager = SaveLoadManager(self.movement_controller)
-        create_file_menu(main_window=self)
 
-        self.toggle_helper = Toggle(self)
-        self.update_gui_helper = UpdateGUI(self)
+    def _init_ui(self):
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QVBoxLayout()
+        central_widget.setLayout(main_layout)
+        callbacks = self._get_ui_callbacks()
+        try:
+            control_bar, self.buttons, self.mode_combo, self.speed_combo = UIComponentManager.create_control_bar(callbacks)
+            main_layout.addLayout(control_bar)
+        except Exception as e:
+            print(f"Error creating control bar: {e}")
+            start_button = QPushButton("Start")
+            start_button.clicked.connect(self.toggle_simulation)
+            main_layout.addWidget(start_button)
+        zoom_layout = QHBoxLayout()
+        from GUI.Canvas.ZoomableSimulationCanvas import ZoomableSimulationCanvas
+        self.canvas = ZoomableSimulationCanvas(self)
+        self.canvas.sim_manager = self.sim_manager
+        self.canvas.renderer = self.renderer
+        self.canvas.missile_renderer = self.missile_renderer
+        self.canvas.radar_renderer = self.radar_renderer
+        self.canvas.explosion_manager = self.explosion_manager
+        self.canvas.screen_flash = self.screen_flash
+        # Now that canvas is created, initialize Zoom with canvas
+        self.zoom = Zoom(self.canvas)
+        # Optionally, set zoom_label for display updates
+        self.zoom.zoom_label = QLabel("Zoom: 100%")
+        zoom_in_btn = QPushButton("Zoom In")
+        zoom_in_btn.clicked.connect(self.zoom.zoom_in)
+        zoom_layout.addWidget(zoom_in_btn)
+        zoom_out_btn = QPushButton("Zoom Out")
+        zoom_out_btn.clicked.connect(self.zoom.zoom_out)
+        zoom_layout.addWidget(zoom_out_btn)
+        reset_view_btn = QPushButton("Reset View")
+        reset_view_btn.clicked.connect(self.zoom.reset_view)
+        zoom_layout.addWidget(reset_view_btn)
+        fit_view_btn = QPushButton("Fit to View")
+        fit_view_btn.clicked.connect(self.zoom.fit_to_view)
+        zoom_layout.addWidget(fit_view_btn)
+        zoom_layout.addWidget(self.zoom.zoom_label)
+        zoom_layout.addStretch()
+        main_layout.addLayout(zoom_layout)
+        main_layout.addWidget(self.canvas)
+        self.simulation_canvas = self.canvas
+        self.missile_status_layout = QVBoxLayout()
+        main_layout.addLayout(self.missile_status_layout)
 
-    def _init_window(self):
-        """Initialize window properties"""
-        self.setWindowTitle("Drone Simulator")
-        self.resize(SimulationConfig.WINDOW_WIDTH, SimulationConfig.WINDOW_HEIGHT)
-        self.setStyleSheet("background-color: #f0f0f0;")
+    def _get_ui_callbacks(self):
+        return {
+            'toggle_simulation': self.toggle_simulation,
+            'reset_simulation': self.reset_simulation,
+            'toggle_grid': self.toggle_grid,
+            'toggle_paths': self.toggle_paths,
+            'toggle_debug': self.toggle_debug,
+            'toggle_statistics': self.panel_controller.toggle_statistics_panel,
+            'toggle_performance': self.panel_controller.toggle_performance_panel,
+            'change_mode': self.change_mode,
+            'change_radar_speed': self.change_radar_speed,
+            'launch_scenario_editor': self.launch_scenario_editor
+        }
+
+    def _init_simulation(self):
+        self.sim_manager.drones.clear()
+        self.sim_manager.obstacles.clear()
+        if self.sim_manager.base is None:
+            self.sim_manager.base = QRect(50, 50, SimulationConfig.BASE_SIZE, SimulationConfig.BASE_SIZE)
+        try:
+            from EnemySystem.Target import Target
+            placeholder_target = Target(0, 0)
+            placeholder_target.hidden = True
+            placeholder_target.is_placeholder = True
+            self.sim_manager.target = placeholder_target
+        except Exception as e:
+            self.sim_manager.target = None
+        self.movement_controller = MainController(
+            self.sim_manager.drones, 
+            self.sim_manager.obstacles, 
+            self.sim_manager.target, 
+            self.sim_manager.base,
+            self.sim_modes,
+            alert_system=self.alert_system
+        )
+        self.sim_manager.movement_controller = self.movement_controller
+        self.canvas.movement_controller = self.movement_controller
+        self.missile_status_labels = []
+
+    def _update_simulation(self):
+        self.update_gui_helper._update_simulation()
+
+    def _update_panels(self):
+        self.update_gui_helper._update_panels()
 
     def toggle_simulation(self):
         self.toggle_helper.toggle_simulation()
@@ -95,72 +186,62 @@ class MainWindow(QMainWindow):
         self.toggle_helper.toggle_debug()
         self.timer.setInterval(SimulationConfig.TIMER_INTERVAL)
 
-    def _init_ui(self):
-        """Initialize UI layout"""
-        # Create central widget for QMainWindow
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
-        main_layout = QVBoxLayout()
-        central_widget.setLayout(main_layout)
-
-        # Create control bar
-        callbacks = self._get_ui_callbacks()
+    def change_mode(self, mode_text):
+        # Use helper or implement logic here
         try:
-            control_bar, self.buttons, self.mode_combo, self.speed_combo = UIComponentManager.create_control_bar(callbacks)
-            main_layout.addLayout(control_bar)
+            mode_mapping = {
+                "Normal": Modes.NORMAL,
+                "Search and Destroy": Modes.SEARCH_AND_DESTROY,
+                "Escort": Modes.ESCORT,
+                "Reconnaissance": Modes.RECONNAISSANCE,
+                "Defensive": Modes.DEFENSIVE,
+                "Bombing Run": Modes.BOMBING_RUN,
+                "Patrol": Modes.PATROL,
+                "Search and Rescue": Modes.SEARCH_AND_RESCUE
+            }
+            mode = mode_mapping.get(mode_text, Modes.NORMAL)
+            if self.sim_modes:
+                self.sim_modes.set_mode(mode)
+                handler = self.sim_modes.get_current_handler()
+                if self.sim_manager and self.sim_manager.drones:
+                    handler.configure_drones(self.sim_manager.drones)
+                if self.sim_manager and self.sim_manager.target:
+                    handler.configure_target(self.sim_manager.target)
+                radar_speeds = {
+                    "normal_mode": "normal",
+                    "search_and_destroy": "fast",
+                    "escort": "normal",
+                    "reconnaissance": "slow",
+                    "defensive": "normal",
+                    "bombing_run": "fast",
+                    "patrol": "normal",
+                    "search_and_rescue": "fast",
+                }
+                mode_key = getattr(handler, "mode_name", mode.value)
+                sweep_speed = radar_speeds.get(mode_key, "normal")
+                self.radar_renderer.set_sweep_speed(sweep_speed)
         except Exception as e:
-            print(f"Error creating control bar: {e}")
-            start_button = QPushButton("Start")
-            start_button.clicked.connect(self.toggle_simulation)
-            main_layout.addWidget(start_button)
+            pass
 
-        # Add zoom controls
-        zoom_layout = QHBoxLayout()
-        
-        zoom_in_btn = QPushButton("Zoom In")
-        zoom_in_btn.clicked.connect(self.zoom_in)
-        zoom_layout.addWidget(zoom_in_btn)
-        
-        zoom_out_btn = QPushButton("Zoom Out")
-        zoom_out_btn.clicked.connect(self.zoom_out)
-        zoom_layout.addWidget(zoom_out_btn)
-        
-        reset_view_btn = QPushButton("Reset View")
-        reset_view_btn.clicked.connect(self.reset_view)
-        zoom_layout.addWidget(reset_view_btn)
-        
-        fit_view_btn = QPushButton("Fit to View")
-        fit_view_btn.clicked.connect(self.fit_to_view)
-        zoom_layout.addWidget(fit_view_btn)
-        
-        self.zoom_label = QLabel("Zoom: 100%")
-        zoom_layout.addWidget(self.zoom_label)
-        
-        zoom_layout.addStretch()
-        main_layout.addLayout(zoom_layout)
+    def change_radar_speed(self, speed_text):
+        speed_mapping = {
+            "Slow": "slow",
+            "Normal": "normal", 
+            "Fast": "fast",
+            "Very Fast": "very_fast",
+            "Ultra Fast": "ultra_fast"
+        }
+        speed_mode = speed_mapping.get(speed_text, "normal")
+        self.radar_renderer.set_sweep_speed(speed_mode)
 
-        # Create zoomable simulation canvas
-        from GUI.Canvas.ZoomableSimulationCanvas import ZoomableSimulationCanvas
-        self.canvas = ZoomableSimulationCanvas(self)
+    def launch_scenario_editor(self):
+        try:
+            self.scenario_editor = ScenarioEditor(self)
+            self.scenario_editor.show()
+        except Exception as e:
+            print(f"Error launching scenario editor: {e}")
 
-        # Connect canvas to simulation components (remove movement_controller for now)
-        self.canvas.sim_manager = self.sim_manager
-        # self.canvas.movement_controller = self.movement_controller  # Remove this line
-        self.canvas.renderer = self.renderer
-        self.canvas.missile_renderer = self.missile_renderer
-        self.canvas.radar_renderer = self.radar_renderer
-        self.canvas.explosion_manager = self.explosion_manager
-        self.canvas.screen_flash = self.screen_flash
-
-        main_layout.addWidget(self.canvas)
-        
-        # Store reference for backward compatibility
-        self.simulation_canvas = self.canvas
-
-        # Create missile status layout for labels
-        self.missile_status_layout = QVBoxLayout()
-        main_layout.addLayout(self.missile_status_layout)
+    # Removed duplicate/conflicting __init__ and erroneous code block
 
     def _get_ui_callbacks(self):
         """Get all UI callback functions"""
@@ -184,13 +265,11 @@ class MainWindow(QMainWindow):
         self.sim_manager.obstacles.clear()
         
         # Initialize base with default position
-        from PyQt5.QtCore import QRect
-        from Config.SimulationConfig import SimulationConfig
+
         
         if self.sim_manager.base is None:
             self.sim_manager.base = QRect(50, 50, SimulationConfig.BASE_SIZE, SimulationConfig.BASE_SIZE)
         
-        # Create a placeholder target instead of None
         try:
             from EnemySystem.Target import Target
             placeholder_target = Target(0, 0)
@@ -297,8 +376,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             pass
 
-
-
     def change_radar_speed(self, speed_text):
         """Handle radar speed changes"""
         speed_mapping = {
@@ -364,19 +441,6 @@ class MainWindow(QMainWindow):
             alert_system=self.alert_system  # <-- ADD THIS LINE
         )
         self.sim_manager.movement_controller = self.movement_controller
-
-    def load_scenario_from_file(self, filename: str):
-        """Load a scenario from the scenario editor format"""
-        try:
-            import json
-            with open(filename, 'r') as f:
-                scenario_data = json.load(f)
-            
-            apply_scenario_to_simulation(scenario_data)
-            return True
-        except Exception as e:
-            print(f"Failed to load scenario: {e}")
-            return False
 
     def get_current_drone_count(self):
         """Get current number of drones in simulation"""

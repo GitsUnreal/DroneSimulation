@@ -1,6 +1,7 @@
 from GUI.Components.UIComponentManager import UIComponentManager
 from PyQt5.QtWidgets import QWidget, QHBoxLayout, QPushButton
 from SimMode.Modes import Modes
+
 def change_mode(self, mode_text):
     """Handle mode changes"""
     try:
