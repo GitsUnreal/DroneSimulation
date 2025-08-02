@@ -2,48 +2,53 @@ import json
 import os
 from datetime import datetime
 from PyQt5.QtWidgets import QFileDialog, QMessageBox
+from typing import Optional, Any
+import logging
 
 class SaveLoadManager:
-    def __init__(self, main_controller):
+    """
+    Manages saving and loading simulation state.
+    """
+    def __init__(self, main_controller: Any) -> None:
         self.main_controller = main_controller
-        
-        # Set default save directory
         self.default_save_dir = os.path.join(os.getcwd(), "saves")
         self.ensure_save_directory()
-        
-    def ensure_save_directory(self):
-        """Create saves directory if it doesn't exist"""
+
+    def ensure_save_directory(self) -> None:
+        """Create saves directory if it doesn't exist."""
         if not os.path.exists(self.default_save_dir):
             os.makedirs(self.default_save_dir)
-            print(f"Created saves directory: {self.default_save_dir}")
-        
-    def save_simulation(self, filename=None):
-        """Save complete simulation state in scenario format"""
+            logging.info(f"Created saves directory: {self.default_save_dir}")
+
+    def save_simulation(self, filename: Optional[str] = None) -> bool:
+        """
+        Save complete simulation state in scenario format.
+        Args:
+            filename (Optional[str]): Filename to save to.
+        Returns:
+            bool: True if saved, False otherwise.
+        """
         if not filename:
-            # Set default filename with timestamp
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            default_filename = f"simulation_{timestamp}.scenario"  # Use .scenario extension
+            default_filename = f"simulation_{timestamp}.scenario"
             default_path = os.path.join(self.default_save_dir, default_filename)
-            
             filename, _ = QFileDialog.getSaveFileName(
-                None, 
-                "Save Simulation", 
+                None,
+                "Save Simulation",
                 default_path,
-                "Scenario Files (*.scenario);;All Files (*)"  # Use scenario format
+                "Scenario Files (*.scenario);;All Files (*)"
             )
             if not filename:
                 return False
         else:
-            # For quick save, use the saves directory
             if not os.path.isabs(filename):
                 filename = os.path.join(self.default_save_dir, filename)
-                
+
         try:
-            # Convert to scenario format
             scenario_data = {
                 'metadata': {
                     'name': f"Simulation Save {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                    'mission_type': 'search_and_destroy',  # Default
+                    'mission_type': 'search_and_destroy',
                     'difficulty': 'Normal',
                     'time_limit': 300,
                     'map_width': 1080,
@@ -54,8 +59,6 @@ class SaveLoadManager:
                 },
                 'items': []
             }
-            
-            # Add drones
             for i, drone in enumerate(self.main_controller.drones):
                 scenario_data['items'].append({
                     'type': 'drone',
@@ -66,8 +69,6 @@ class SaveLoadManager:
                         'formation_role': 'assault'
                     }
                 })
-            
-            # Add target (assuming single target for now)
             if hasattr(self.main_controller, 'target') and self.main_controller.target:
                 target = self.main_controller.target
                 scenario_data['items'].append({
@@ -79,8 +80,6 @@ class SaveLoadManager:
                         'hidden': getattr(target, 'hidden', False)
                     }
                 })
-            
-            # Add obstacles
             for obstacle in self.main_controller.obstacles:
                 scenario_data['items'].append({
                     'type': 'obstacle',
@@ -90,8 +89,6 @@ class SaveLoadManager:
                         'destructible': False
                     }
                 })
-            
-            # Add base
             if hasattr(self.main_controller, 'base'):
                 base = self.main_controller.base
                 scenario_data['items'].append({

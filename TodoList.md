@@ -165,12 +165,13 @@
 - [x] **Advanced decision-making AI** *(DecisionTrees.py)*
 - [x] **Formation flying patterns** *(PatternGenerator.py)*
 - [x] **Comprehensive status management** *(StatusChecker.py)*
-- [ ] **Network/multiplayer architecture**
-- [ ] **Advanced graphics shaders**
-- [ ] **Sound effects and audio system**
-- [ ] **Telemetry data recording**
-- [ ] **Mission scripting system**
-
+- [ ] Make  effect work again
+- [ ] Make the drones fly in a spotting formation to try to spot the target instead of flying directly towards the target
+- [ ] Make possibility for a convouyr of target
+- [ ] Make a formation flying drone attack
+- [ ] Make target health and drone health
+- [ ] Make the mission selector in simulation to be simulation speed, so only the mission can be selected in editor.
+ 
 ---
 
 ## 📝 Notes
@@ -185,6 +186,8 @@
 - ~~Can't change gamemode in the GUI~~ *(FIXED)*
 - [x] Cannot spawn a convoy of targets *(spawn_convoy_targets method implemented)*
 - [ ] Cannot load a save *(SaveLoadManager exists but may have issues)*
+- Need to change mission selector in simulation to simulation speed. So the user only can change the mission in the editor.
+- Need to make it so when the target is hit, and destoryed the target gets a red cross over the square, and a text over with the text "Destroyed" in red. 
 
 ### Development Priorities
 1. ~~Fix return-to-base navigation~~ ✅

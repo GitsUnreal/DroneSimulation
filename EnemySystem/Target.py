@@ -48,6 +48,8 @@ class Target:
         self.movement_pattern = "none"  # "linear", "circular", "waypoint", "random", "none"
         self.pattern_timer = 0
         self.direction_change_interval = 3.0  # seconds
+        from EnemySystem.TargetBehavior import TargetBehavior
+        self.behavior = TargetBehavior(self)
 
     def set_none_movement(self):
         """Set target to not move"""
@@ -56,6 +58,7 @@ class Target:
         self.direction = np.zeros(2)
         self.speed = 0.0
         self.pattern_timer = 0
+        self.behavior.set_none_movement()
 
     def set_linear_movement(self, direction, speed=2.0):
         """Set target to move in a straight line"""
@@ -64,6 +67,7 @@ class Target:
         self.direction = self.direction / np.linalg.norm(self.direction)  # Normalize
         self.speed = speed
         self.velocity = self.direction * self.speed
+        self.behavior.set_linear_movement(direction, speed)
 
     def set_circular_movement(self, center, radius, angular_speed=0.02):
         """Set target to move in a circle"""
@@ -72,6 +76,7 @@ class Target:
         self.circle_radius = radius
         self.angular_speed = angular_speed
         self.angle = 0
+        self.behavior.set_circular_movement(center, radius, angular_speed)
 
     def set_random_path(self, num_waypoints=5, bounds=None):
         """Generate random waypoints for the target to follow"""
@@ -95,6 +100,7 @@ class Target:
         self.direction_change_interval = direction_change_interval
         self.speed = speed
         self._generate_random_direction()
+        self.behavior.set_random_movement(speed)
 
     def _generate_random_direction(self):
         """Generate a new random direction"""
@@ -122,6 +128,7 @@ class Target:
         
         # Keep target within bounds
         self._constrain_to_bounds()
+        self.behavior.update(dt)
 
     def _update_linear_movement(self):
         """Update position for linear movement"""

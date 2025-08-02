@@ -14,65 +14,86 @@ Escort mode rules:
 8. Drones should automatically use radar to detect incoming threats.
 """
 
-class EscortModeHandler(ModeHandler):
-    def __init__(self):
-        super().__init__("escort")
-    
-    def configure_drones(self, drones):
-        # Use standard movement for formation escort
-        movement_config = DroneMovementMode.STANDARD.value
-        
-        for drone in drones:
-            drone.apply_movement_config(movement_config)
-            drone.max_missiles = 4  # Light armament for quick response
-            drone.preferred_missile_type = MissileType.STANDARD
-            drone.missile_config = MissileConfigPresets.STANDARD.value
 
-    def configure_drone(self, drone):
-        """Configure individual drone for escort mode"""
+from typing import List, Any, Dict, Tuple
+
+class EscortModeHandler(ModeHandler):
+    """
+    Handler for Escort simulation mode. Drones protect VIP/convoy, maintain formation,
+    and prioritize defensive actions.
+    """
+    def __init__(self) -> None:
+        super().__init__("escort")
+
+    def configure_drones(self, drones: List[Any]) -> None:
+        """
+        Configure all drones for escort mode.
+        Args:
+            drones (List[Any]): List of drone objects.
+        """
+        movement_config = DroneMovementMode.STANDARD.value
+        for drone in drones:
+            self.configure_drone(drone)
+
+    def configure_drone(self, drone: Any) -> None:
+        """
+        Configure a single drone for escort mode.
+        Args:
+            drone (Any): Drone object.
+        """
         movement_config = DroneMovementMode.STANDARD.value
         drone.apply_movement_config(movement_config)
         drone.max_missiles = 4
         drone.preferred_missile_type = MissileType.STANDARD
         drone.missile_config = MissileConfigPresets.STANDARD.value
 
-    def configure_target(self, target):
-        # In escort missions, the "target" is actually the VIP/convoy to protect
-        # Handle both single target and multiple targets
+    def configure_target(self, target: Any) -> None:
+        """
+        Configure the target(s) for escort mode (VIP/convoy).
+        Args:
+            target (Any): Target object or list of targets.
+        """
         if hasattr(target, '__iter__') and not isinstance(target, str):
-            # Multiple targets (convoy)
             for t in target:
-                t.hidden = False  # Always visible - this is what we're protecting
-                t.is_vip = True  # Mark as VIP
-                t.needs_escort = True
+                self._set_vip_properties(t)
         else:
-            # Single target (VIP)
-            target.hidden = False  # Always visible
-            target.is_vip = True  # Mark as VIP
-            target.needs_escort = True
+            self._set_vip_properties(target)
 
-    def get_movement_parameters(self):
-        """Return movement parameters for escort mode"""
+    @staticmethod
+    def _set_vip_properties(target: Any) -> None:
+        target.hidden = False
+        target.is_vip = True
+        target.needs_escort = True
+
+    def get_movement_parameters(self) -> Dict:
+        """Return movement parameters for escort mode."""
         return DroneMovementMode.STANDARD.value.__dict__
 
-    def get_missile_parameters(self):
-        """Return missile parameters for escort mode"""
+    def get_missile_parameters(self) -> Dict:
+        """Return missile parameters for escort mode."""
         return MissileConfigPresets.STANDARD.value.__dict__
 
-    def should_show_target(self):
-        return True  # Always show the VIP/escort target
-    
-    def get_formation_type(self):
-        """Get the preferred formation for escort missions"""
-        return "protective_circle"  # Drones form a circle around the VIP
-    
-    def get_threat_priority(self, threats, vip_position):
-        """Prioritize threats based on distance to VIP"""
+    def should_show_target(self) -> bool:
+        """Always show the VIP/escort target."""
+        return True
+
+    def get_formation_type(self) -> str:
+        """Get the preferred formation for escort missions."""
+        return "protective_circle"
+
+    def get_threat_priority(self, threats: List[Any], vip_position: Tuple[float, float]) -> List[Tuple[Any, float]]:
+        """
+        Prioritize threats based on distance to VIP.
+        Args:
+            threats (List[Any]): List of threat objects with position attribute.
+            vip_position (Tuple[float, float]): Position of VIP.
+        Returns:
+            List[Tuple[Any, float]]: List of (threat, priority) sorted by priority descending.
+        """
         threat_priorities = []
         for threat in threats:
-            distance_to_vip = ((threat.position[0] - vip_position[0])**2 + 
-                              (threat.position[1] - vip_position[1])**2)**0.5
-            priority = 1000 - distance_to_vip  # Closer = higher priority
+            distance_to_vip = ((threat.position[0] - vip_position[0]) ** 2 +
+                              (threat.position[1] - vip_position[1]) ** 2) ** 0.5
+            priority = 1000 - distance_to_vip
             threat_priorities.append((threat, priority))
-        
         return sorted(threat_priorities, key=lambda x: x[1], reverse=True)
